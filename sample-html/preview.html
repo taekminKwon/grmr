@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>문법 학습 관리 서비스 - 클릭형 와이어프레임</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --line: #d9dde5;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #315efb;
+      --accent-soft: #eaf0ff;
+      --success: #16835d;
+      --danger: #c73f4d;
+      --warning: #9a6a10;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 240px 1fr;
+    }
+
+    .sidebar {
+      background: #111827;
+      color: white;
+      padding: 20px 16px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand {
+      font-weight: 800;
+      font-size: 20px;
+      margin-bottom: 24px;
+      padding: 0 10px;
+    }
+
+    .role-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      background: rgba(255,255,255,.08);
+      padding: 6px;
+      border-radius: 12px;
+      margin-bottom: 18px;
+    }
+
+    .role-switch button {
+      border: 0;
+      border-radius: 9px;
+      padding: 9px 8px;
+      color: #d1d5db;
+      background: transparent;
+    }
+
+    .role-switch button.active {
+      background: white;
+      color: #111827;
+      font-weight: 700;
+    }
+
+    .nav-title {
+      color: #9ca3af;
+      font-size: 12px;
+      padding: 12px 10px 8px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .nav {
+      display: grid;
+      gap: 6px;
+    }
+
+    .nav button {
+      width: 100%;
+      text-align: left;
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 12px;
+      background: transparent;
+      color: #d1d5db;
+    }
+
+    .nav button:hover,
+    .nav button.active {
+      background: rgba(255,255,255,.12);
+      color: white;
+    }
+
+    .main {
+      padding: 28px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+
+    .page-title h1 {
+      margin: 0 0 5px;
+      font-size: 28px;
+    }
+
+    .page-title p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .pill {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 4px 14px rgba(17,24,39,.04);
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 9px;
+    }
+
+    .metric .value {
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .metric .sub {
+      margin-top: 7px;
+      font-size: 12px;
+      color: var(--success);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--text);
+      padding: 9px 13px;
+      border-radius: 10px;
+    }
+
+    .btn.primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    .btn.soft {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: transparent;
+    }
+
+    .btn.danger {
+      background: #fff1f2;
+      color: var(--danger);
+      border-color: #fecdd3;
+    }
+
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th { color: var(--muted); font-weight: 600; }
+    tr.clickable:hover { background: #fafbff; cursor: pointer; }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #eef2ff;
+      color: #4338ca;
+    }
+
+    .status.success { background: #ecfdf5; color: #047857; }
+    .status.warn { background: #fff7ed; color: #c2410c; }
+    .status.gray { background: #f3f4f6; color: #4b5563; }
+
+    .filters {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    select, input, textarea {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 11px;
+      background: white;
+      color: var(--text);
+    }
+
+    input[type="text"], textarea { width: 100%; }
+    textarea { min-height: 110px; resize: vertical; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 14px;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .list-item {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .list-item strong { display: block; margin-bottom: 4px; }
+    .list-item small { color: var(--muted); }
+
+    .progress {
+      width: 100%;
+      height: 9px;
+      border-radius: 999px;
+      background: #edf0f4;
+      overflow: hidden;
+    }
+
+    .progress > span {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+      border-radius: inherit;
+    }
+
+    .chart {
+      height: 210px;
+      display: flex;
+      align-items: end;
+      gap: 16px;
+      padding: 20px 8px 5px;
+      border-top: 1px dashed var(--line);
+    }
+
+    .bar {
+      flex: 1;
+      min-width: 24px;
+      background: var(--accent-soft);
+      border: 1px solid #c7d2fe;
+      border-radius: 8px 8px 0 0;
+      position: relative;
+    }
+
+    .bar span {
+      position: absolute;
+      bottom: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .question-shell {
+      display: grid;
+      grid-template-columns: 1fr 270px;
+      gap: 18px;
+    }
+
+    .question-card {
+      min-height: 430px;
+    }
+
+    .question-number {
+      color: var(--accent);
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .question-text {
+      font-size: 24px;
+      line-height: 1.55;
+      margin: 26px 0;
+    }
+
+    .choices { display: grid; gap: 10px; }
+
+    .choice {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 13px 14px;
+      background: white;
+      text-align: left;
+    }
+
+    .choice.selected {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .choice.correct {
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
+
+    .choice.wrong {
+      border-color: #fda4af;
+      background: #fff1f2;
+    }
+
+    .number-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .num-btn {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 0;
+      background: white;
+    }
+
+    .num-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+    .result-box {
+      padding: 16px;
+      border-radius: 12px;
+      margin-top: 16px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+    }
+
+    .hidden { display: none !important; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,.48);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 20;
+    }
+
+    .modal {
+      width: min(760px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      background: white;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 24px 80px rgba(15,23,42,.28);
+    }
+
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      padding: 13px 16px;
+      border-radius: 12px;
+      background: #111827;
+      color: white;
+      z-index: 30;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1000px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+      .nav { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .grid-4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .grid-2, .question-shell { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .main { padding: 18px; }
+      .grid-4, .form-grid { grid-template-columns: 1fr; }
+      .nav { grid-template-columns: 1fr 1fr; }
+      .topbar { align-items: flex-start; gap: 12px; }
+      .pill { display: none; }
+      table { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">Grammar Lab</div>
+    <div class="role-switch">
+      <button id="adminRoleBtn" class="active">관리자</button>
+      <button id="studentRoleBtn">학생</button>
+    </div>
+    <div class="nav-title">메뉴</div>
+    <nav class="nav" id="nav"></nav>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="page-title">
+        <h1 id="pageTitle">대시보드</h1>
+        <p id="pageSubtitle">학습 현황과 과제 상태를 확인합니다.</p>
+      </div>
+      <div class="pill" id="userPill">관리자 · 권태민</div>
+    </div>
+    <section id="content"></section>
+  </main>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+  const state = {
+    role: 'admin',
+    page: 'dashboard',
+    selectedAnswer: null,
+    submitted: false,
+    generatedQuestions: [],
+    questions: [
+      { id: 1024, category: '현재완료', type: '객관식', level: '보통', status: '사용 중', text: 'He has lived here _____ 2010.', answer: 'since', choices: ['for', 'since', 'during', 'from'], explanation: '특정 시작 시점과 현재완료가 함께 쓰일 때 since를 사용합니다.' },
+      { id: 1023, category: '관계대명사', type: '객관식', level: '보통', status: '사용 중', text: 'This is the book _____ I bought yesterday.', answer: 'that', choices: ['who', 'that', 'where', 'when'], explanation: '사물을 선행사로 하는 목적격 관계대명사 that이 적절합니다.' },
+      { id: 1022, category: '수동태', type: '객관식', level: '기초', status: '초안', text: 'All the windows _____ closed.', answer: 'were', choices: ['was', 'were', 'is', 'be'], explanation: '복수 주어 windows와 과거 수동태이므로 were closed입니다.' },
+      { id: 1021, category: '가정법', type: '객관식', level: '심화', status: '사용 중', text: 'If I _____ you, I would study harder.', answer: 'were', choices: ['am', 'was', 'were', 'be'], explanation: '현재 사실과 반대되는 가정에서는 If I were you를 사용합니다.' }
+    ],
+    assignments: [
+      { id: 1, title: '현재완료 시제 연습', target: '중1 A반', due: '2026-08-05', progress: 84, status: '진행 중' },
+      { id: 2, title: '수동태 기본 문제', target: '중2 B반', due: '2026-08-07', progress: 62, status: '진행 중' },
+      { id: 3, title: '관계대명사 종합', target: '중3 심화반', due: '2026-08-10', progress: 41, status: '예정' }
+    ]
+  };
+
+  const menus = {
+    admin: [
+      ['dashboard', '대시보드'],
+      ['questions', '문제 관리'],
+      ['assignments', '과제 관리'],
+      ['students', '학생 관리'],
+      ['history', '학습 이력']
+    ],
+    student: [
+      ['dashboard', '대시보드'],
+      ['assignments', '내 과제'],
+      ['practice', '자유 학습'],
+      ['history', '내 학습'],
+      ['wrong', '오답노트']
+    ]
+  };
+
+  function setRole(role) {
+    state.role = role;
+    state.page = 'dashboard';
+    state.selectedAnswer = null;
+    state.submitted = false;
+    document.getElementById('adminRoleBtn').classList.toggle('active', role === 'admin');
+    document.getElementById('studentRoleBtn').classList.toggle('active', role === 'student');
+    document.getElementById('userPill').textContent = role === 'admin' ? '관리자 · 권태민' : '학생 · 김민수';
+    render();
+  }
+
+  function navigate(page) {
+    state.page = page;
+    state.selectedAnswer = null;
+    state.submitted = false;
+    render();
+  }
+
+  function renderNav() {
+    const nav = document.getElementById('nav');
+    nav.innerHTML = menus[state.role].map(([key,label]) =>
+      `<button class="${state.page === key ? 'active' : ''}" onclick="navigate('${key}')">${label}</button>`
+    ).join('');
+  }
+
+  function setPageMeta(title, subtitle) {
+    document.getElementById('pageTitle').textContent = title;
+    document.getElementById('pageSubtitle').textContent = subtitle;
+  }
+
+  function render() {
+    renderNav();
+    const content = document.getElementById('content');
+    if (state.role === 'admin') {
+      if (state.page === 'dashboard') return renderAdminDashboard(content);
+      if (state.page === 'questions') return renderQuestionManagement(content);
+      if (state.page === 'assignments') return renderAdminAssignments(content);
+      if (state.page === 'students') return renderStudents(content);
+      if (state.page === 'history') return renderAdminHistory(content);
+    } else {
+      if (state.page === 'dashboard') return renderStudentDashboard(content);
+      if (state.page === 'assignments') return renderStudentAssignments(content);
+      if (state.page === 'practice') return renderPractice(content);
+      if (state.page === 'history') return renderStudentHistory(content);
+      if (state.page === 'wrong') return renderWrongAnswers(content);
+    }
+  }
+
+  function metric(label, value, sub) {
+    return `<div class="card metric"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div>`;
+  }
+
+  function renderAdminDashboard(content) {
+    setPageMeta('관리자 대시보드', '전체 학생의 학습 및 과제 현황을 확인합니다.');
+    content.innerHTML = `
+      <div class="grid-4">
+        ${metric('전체 학생', '128명', '이번 달 +12명')}
+        ${metric('오늘 학습 학생', '45명', '어제보다 +5명')}
+        ${metric('진행 중 과제', '8개', '이번 주 마감 3개')}
+        ${metric('미제출 과제', '23건', '확인 필요')}
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-head"><h2>최근 7일 학습량</h2><button class="btn">상세보기</button></div>
+          <div class="chart">
+            <div class="bar" style="height:46%"><span>월</span></div>
+            <div class="bar" style="height:61%"><span>화</span></div>
+            <div class="bar" style="height:72%"><span>수</span></div>
+            <div class="bar" style="height:58%"><span>목</span></div>
+            <div class="bar" style="height:84%"><span>금</span></div>
+            <div class="bar" style="height:66%"><span>토</span></div>
+            <div class="bar" style="height:77%"><span>일</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-head"><h2>문법 항목별 평균 정답률</h2></div>
+          <div class="list">
+            ${progressRow('시제', 82)}
+            ${progressRow('조동사', 72)}
+            ${progressRow('수동태', 65)}
+            ${progressRow('관계대명사', 58)}
+            ${progressRow('가정법', 45)}
+          </div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-head"><h2>과제 현황</h2><button class="btn primary" onclick="navigate('assignments')">과제 관리</button></div>
+          ${assignmentTable(false)}
+        </div>
+        <div class="card">
+          <div class="section-head"><h2>최근 미제출 학생</h2></div>
+          <div class="list">
+            ${studentAlert('김민수', '현재완료 시제 연습', '마감 D-4')}
+            ${studentAlert('이서연', '수동태 기본 문제', '마감 D-6')}
+            ${studentAlert('박지후', '관계대명사 종합', '미시작')}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function progressRow(name, value) {
+    return `<div><div style="display:flex;justify-content:space-between;margin-bottom:7px"><strong>${name}</strong><span>${value}%</span></div><div class="progress"><span style="width:${value}%"></span></div></div>`;
+  }
+
+  function studentAlert(name, assignment, note) {
+    return `<div class="list-item"><div><strong>${name}</strong><small>${assignment}</small></div><span class="status warn">${note}</span></div>`;
+  }
+
+  function renderQuestionManagement(content) {
+    setPageMeta('문제 관리', '문제를 등록하고 GPT로 초안을 생성합니다.');
+    content.innerHTML = `
+      <div class="card">
+        <div class="section-head">
+          <h2>문제 목록</h2>
+          <div class="actions">
+            <button class="btn" onclick="openQuestionModal()">직접 등록</button>
+            <button class="btn primary" onclick="openGptModal()">GPT로 문제 생성</button>
+          </div>
+        </div>
+        <div class="filters">
+          <select><option>문법 항목 전체</option><option>현재완료</option><option>수동태</option></select>
+          <select><option>문제 유형 전체</option><option>객관식</option><option>빈칸</option></select>
+          <select><option>난이도 전체</option><option>기초</option><option>보통</option><option>심화</option></select>
+          <input style="max-width:260px" placeholder="문제 내용 검색" />
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>문제</th><th>문법</th><th>유형</th><th>난이도</th><th>상태</th><th></th></tr></thead>
+          <tbody>${state.questions.map(q => `
+            <tr class="clickable" onclick="openQuestionDetail(${q.id})">
+              <td>${q.id}</td><td>${q.text}</td><td>${q.category}</td><td>${q.type}</td><td>${q.level}</td>
+              <td><span class="status ${q.status === '사용 중' ? 'success' : 'gray'}">${q.status}</span></td>
+              <td><button class="btn">보기</button></td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function assignmentTable(full=true) {
+    return `<table><thead><tr><th>과제명</th><th>대상</th><th>마감일</th><th>제출률</th>${full ? '<th>상태</th><th></th>' : ''}</tr></thead><tbody>${state.assignments.map(a => `<tr>
+      <td>${a.title}</td><td>${a.target}</td><td>${a.due}</td><td>${a.progress}%</td>${full ? `<td><span class="status ${a.status === '진행 중' ? 'success' : 'gray'}">${a.status}</span></td><td><button class="btn" onclick="showToast('과제 상세 화면을 열었습니다.')">상세</button></td>` : ''}</tr>`).join('')}</tbody></table>`;
+  }
+
+  function renderAdminAssignments(content) {
+    setPageMeta('과제 관리', '문제를 묶어 학생 또는 반에 할당합니다.');
+    content.innerHTML = `
+      <div class="card">
+        <div class="section-head"><h2>과제 목록</h2><button class="btn primary" onclick="openAssignmentModal()">새 과제 만들기</button></div>
+        <div class="filters"><select><option>전체 상태</option><option>진행 중</option><option>예정</option></select><input style="max-width:260px" placeholder="과제명 검색" /></div>
+        ${assignmentTable(true)}
+      </div>`;
+  }
+
+  function renderStudents(content) {
+    setPageMeta('학생 관리', '학생 계정과 학습 상태를 관리합니다.');
+    content.innerHTML = `
+      <div class="card">
+        <div class="section-head"><h2>학생 목록</h2><button class="btn primary" onclick="showToast('학생 등록 폼은 다음 버전에 추가합니다.')">학생 등록</button></div>
+        <table><thead><tr><th>이름</th><th>그룹</th><th>최근 학습일</th><th>누적 정답률</th><th>미제출</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>김민수</td><td>중1 A반</td><td>2026-08-01</td><td>74%</td><td>1건</td><td><button class="btn">상세</button></td></tr>
+          <tr><td>이서연</td><td>중2 B반</td><td>2026-07-31</td><td>82%</td><td>1건</td><td><button class="btn">상세</button></td></tr>
+          <tr><td>박지후</td><td>중3 심화반</td><td>2026-07-27</td><td>68%</td><td>2건</td><td><button class="btn">상세</button></td></tr>
+        </tbody></table>
+      </div>`;
+  }
+
+  function renderAdminHistory(content) {
+    setPageMeta('학습 이력', '학생별 문제 풀이 및 정답률을 조회합니다.');
+    content.innerHTML = `
+      <div class="card">
+        <div class="filters"><select><option>전체 학생</option><option>김민수</option></select><select><option>최근 7일</option><option>최근 30일</option></select><select><option>전체 학습 유형</option><option>과제</option><option>자유 학습</option></select></div>
+        <table><thead><tr><th>학생</th><th>일자</th><th>학습 유형</th><th>문제 수</th><th>정답률</th><th>학습 시간</th></tr></thead><tbody>
+          <tr><td>김민수</td><td>2026-08-01</td><td>과제</td><td>20</td><td>80%</td><td>32분</td></tr>
+          <tr><td>이서연</td><td>2026-07-31</td><td>자유 학습</td><td>15</td><td>87%</td><td>24분</td></tr>
+          <tr><td>박지후</td><td>2026-07-30</td><td>과제</td><td>20</td><td>65%</td><td>35분</td></tr>
+        </tbody></table>
+      </div>`;
+  }
+
+  function renderStudentDashboard(content) {
+    setPageMeta('학생 대시보드', '오늘 해야 할 학습과 최근 성과를 확인합니다.');
+    content.innerHTML = `
+      <div class="grid-4">
+        ${metric('오늘 푼 문제', '12문제', '목표까지 8문제')}
+        ${metric('오늘 정답률', '75%', '최근 평균보다 +3%')}
+        ${metric('오늘 학습 시간', '30분', '연속 학습 5일')}
+        ${metric('미완료 과제', '2개', '가장 빠른 마감 D-4')}
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-head"><h2>해야 할 과제</h2><button class="btn" onclick="navigate('assignments')">전체보기</button></div>
+          <div class="list">
+            ${studentAssignment('현재완료 시제 연습','8/20문제','D-4','practice')}
+            ${studentAssignment('수동태 기본 문제','0/15문제','D-6','assignments')}
+            ${studentAssignment('관계대명사 종합','0/20문제','D-9','assignments')}
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-head"><h2>취약 문법 TOP 3</h2></div>
+          ${progressRow('가정법', 45)}<br>${progressRow('관계대명사', 58)}<br>${progressRow('수동태', 60)}
+          <div style="margin-top:18px"><button class="btn primary" onclick="navigate('practice')">취약 문제 풀기</button></div>
+        </div>
+      </div>`;
+  }
+
+  function studentAssignment(title, count, due, page) {
+    return `<div class="list-item"><div><strong>${title}</strong><small>${count} · 마감 ${due}</small></div><button class="btn soft" onclick="navigate('${page}')">시작하기</button></div>`;
+  }
+
+  function renderStudentAssignments(content) {
+    setPageMeta('내 과제', '할당된 과제를 확인하고 이어서 풉니다.');
+    content.innerHTML = `
+      <div class="card">
+        <div class="list">
+          <div class="list-item"><div style="flex:1"><strong>현재완료 시제 연습</strong><small>마감 2026-08-05 · 진행률 40%</small><div class="progress" style="margin-top:10px"><span style="width:40%"></span></div></div><button class="btn primary" onclick="navigate('practice')">이어서 풀기</button></div>
+          <div class="list-item"><div style="flex:1"><strong>수동태 기본 문제</strong><small>마감 2026-08-07 · 미시작</small><div class="progress" style="margin-top:10px"><span style="width:0%"></span></div></div><button class="btn" onclick="navigate('practice')">시작하기</button></div>
+        </div>
+      </div>`;
+  }
+
+  function renderPractice(content) {
+    setPageMeta('문제 풀이', '답을 선택한 뒤 제출해 채점 결과를 확인합니다.');
+    const q = state.questions[0];
+    content.innerHTML = `
+      <div class="question-shell">
+        <div class="card question-card">
+          <div class="question-number">문제 1 / 5 · 현재완료</div>
+          <div class="question-text">${q.text}</div>
+          <div class="choices">
+            ${q.choices.map(c => {
+              let cls = '';
+              if (state.selectedAnswer === c) cls += ' selected';
+              if (state.submitted && c === q.answer) cls += ' correct';
+              if (state.submitted && state.selectedAnswer === c && c !== q.answer) cls += ' wrong';
+              return `<button class="choice${cls}" onclick="selectAnswer('${c}')">${c}</button>`;
+            }).join('')}
+          </div>
+          ${state.submitted ? `<div class="result-box"><strong>${state.selectedAnswer === q.answer ? '정답입니다.' : '오답입니다.'}</strong><p>정답: ${q.answer}</p><p>${q.explanation}</p></div>` : ''}
+          <div class="section-head" style="margin-top:24px;margin-bottom:0"><button class="btn">이전 문제</button><div class="actions"><button class="btn" onclick="showToast('임시 저장되었습니다.')">임시 저장</button><button class="btn primary" onclick="submitAnswer()">${state.submitted ? '다음 문제' : '답안 제출'}</button></div></div>
+        </div>
+        <div class="card">
+          <div class="section-head"><h2>전체 문제</h2></div>
+          <div class="number-grid">${[1,2,3,4,5].map(n => `<button class="num-btn ${n===1?'active':''}">${n}</button>`).join('')}</div>
+          <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+          <div class="list"><div><small>진행률</small><div class="progress" style="margin-top:8px"><span style="width:20%"></span></div></div><div><small>남은 시간</small><strong style="display:block;margin-top:5px">18:25</strong></div></div>
+        </div>
+      </div>`;
+  }
+
+  function selectAnswer(answer) {
+    if (state.submitted) return;
+    state.selectedAnswer = answer;
+    render();
+  }
+
+  function submitAnswer() {
+    if (!state.selectedAnswer) return showToast('답을 먼저 선택하세요.');
+    if (!state.submitted) {
+      state.submitted = true;
+      render();
+    } else {
+      showToast('다음 문제로 이동합니다.');
+      state.selectedAnswer = null;
+      state.submitted = false;
+      render();
+    }
+  }
+
+  function renderStudentHistory(content) {
+    setPageMeta('내 학습', '기간별 학습 기록과 문법 항목별 성취도를 확인합니다.');
+    content.innerHTML = `
+      <div class="grid-4">
+        ${metric('누적 풀이', '342문제', '이번 달 96문제')}
+        ${metric('누적 정답률', '74%', '지난달보다 +4%')}
+        ${metric('누적 학습 시간', '11시간', '주 평균 2.4시간')}
+        ${metric('해결한 오답', '58개', '미복습 12개')}
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="section-head"><h2>문법별 성취도</h2></div>${progressRow('현재완료',82)}<br>${progressRow('수동태',65)}<br>${progressRow('관계대명사',58)}<br>${progressRow('가정법',45)}</div>
+        <div class="card"><div class="section-head"><h2>최근 학습 기록</h2></div><table><thead><tr><th>날짜</th><th>유형</th><th>문제</th><th>정답률</th></tr></thead><tbody><tr><td>8/1</td><td>과제</td><td>20</td><td>80%</td></tr><tr><td>7/31</td><td>자유 학습</td><td>15</td><td>73%</td></tr><tr><td>7/30</td><td>과제</td><td>10</td><td>90%</td></tr></tbody></table></div>
+      </div>`;
+  }
+
+  function renderWrongAnswers(content) {
+    setPageMeta('오답노트', '반복해서 틀린 문제를 다시 풀어봅니다.');
+    content.innerHTML = `
+      <div class="card">
+        <div class="filters"><select><option>문법 항목 전체</option><option>가정법</option></select><select><option>미복습</option><option>복습 중</option><option>해결</option></select></div>
+        <table><thead><tr><th>문제</th><th>문법</th><th>오답 횟수</th><th>최근 오답일</th><th>상태</th><th></th></tr></thead><tbody>
+          <tr><td>If I _____ you, I would study harder.</td><td>가정법</td><td>3회</td><td>2026-07-30</td><td><span class="status warn">미복습</span></td><td><button class="btn" onclick="navigate('practice')">다시 풀기</button></td></tr>
+          <tr><td>All the windows _____ closed.</td><td>수동태</td><td>2회</td><td>2026-07-29</td><td><span class="status">복습 중</span></td><td><button class="btn" onclick="navigate('practice')">다시 풀기</button></td></tr>
+        </tbody></table>
+      </div>`;
+  }
+
+  function openGptModal() {
+    openModal(`
+      <div class="section-head"><h2>GPT 문제 생성</h2><button class="btn" onclick="closeModal()">닫기</button></div>
+      <div class="form-grid">
+        <div class="field"><label>문법 항목</label><select id="gptCategory" style="width:100%"><option>현재완료</option><option>수동태</option><option>관계대명사</option></select></div>
+        <div class="field"><label>난이도</label><select id="gptLevel" style="width:100%"><option>기초</option><option selected>보통</option><option>심화</option></select></div>
+        <div class="field"><label>문제 유형</label><select id="gptType" style="width:100%"><option>객관식</option><option>빈칸</option><option>오류 찾기</option></select></div>
+        <div class="field"><label>문제 수</label><select id="gptCount" style="width:100%"><option>3</option><option>5</option><option>10</option></select></div>
+        <div class="field full"><label>추가 지시</label><textarea id="gptPrompt" placeholder="중학교 1학년 수준의 쉬운 어휘를 사용해 주세요."></textarea></div>
+      </div>
+      <div class="actions" style="justify-content:flex-end;margin-top:18px"><button class="btn" onclick="closeModal()">취소</button><button class="btn primary" onclick="generateQuestions()">문제 생성</button></div>
+    `);
+  }
+
+  function generateQuestions() {
+    const category = document.getElementById('gptCategory').value;
+    const level = document.getElementById('gptLevel').value;
+    const count = Number(document.getElementById('gptCount').value);
+    state.generatedQuestions = Array.from({length: count}, (_, i) => ({
+      id: 2000 + i,
+      category,
+      type: '객관식',
+      level,
+      status: '초안',
+      text: `${category} 연습 문제 ${i+1}: She has studied English _____ three years.`,
+      answer: 'for',
+      choices: ['for','since','during','from'],
+      explanation: '기간을 나타낼 때 for를 사용합니다.'
+    }));
+    openModal(`
+      <div class="section-head"><h2>생성 결과 검수</h2><button class="btn" onclick="closeModal()">닫기</button></div>
+      <div class="list">${state.generatedQuestions.map((q,i) => `<div class="list-item"><div><strong>${i+1}. ${q.text}</strong><small>정답: ${q.answer} · ${q.category} · ${q.level}</small></div><button class="btn" onclick="showToast('문제 편집 화면입니다.')">편집</button></div>`).join('')}</div>
+      <div class="actions" style="justify-content:flex-end;margin-top:18px"><button class="btn" onclick="openGptModal()">다시 생성</button><button class="btn primary" onclick="saveGeneratedQuestions()">초안으로 저장</button></div>
+    `);
+  }
+
+  function saveGeneratedQuestions() {
+    state.questions = [...state.generatedQuestions, ...state.questions];
+    closeModal();
+    showToast('생성한 문제가 초안으로 저장되었습니다.');
+    render();
+  }
+
+  function openQuestionModal() {
+    openModal(`
+      <div class="section-head"><h2>문제 직접 등록</h2><button class="btn" onclick="closeModal()">닫기</button></div>
+      <div class="form-grid">
+        <div class="field"><label>문법 항목</label><select style="width:100%"><option>현재완료</option><option>수동태</option></select></div>
+        <div class="field"><label>난이도</label><select style="width:100%"><option>기초</option><option>보통</option><option>심화</option></select></div>
+        <div class="field full"><label>문제 내용</label><input id="manualQuestion" type="text" placeholder="문제를 입력하세요" /></div>
+        <div class="field full"><label>해설</label><textarea placeholder="해설을 입력하세요"></textarea></div>
+      </div>
+      <div class="actions" style="justify-content:flex-end;margin-top:18px"><button class="btn" onclick="closeModal()">취소</button><button class="btn primary" onclick="showToast('문제가 초안으로 저장되었습니다.');closeModal()">저장</button></div>
+    `);
+  }
+
+  function openQuestionDetail(id) {
+    const q = state.questions.find(x => x.id === id);
+    openModal(`
+      <div class="section-head"><h2>문제 상세</h2><button class="btn" onclick="closeModal()">닫기</button></div>
+      <div class="card" style="box-shadow:none"><div class="question-number">${q.category} · ${q.level}</div><div class="question-text" style="font-size:20px">${q.text}</div><p><strong>정답:</strong> ${q.answer}</p><p><strong>해설:</strong> ${q.explanation}</p></div>
+      <div class="actions" style="justify-content:flex-end;margin-top:16px"><button class="btn">수정</button><button class="btn danger">사용 중지</button></div>
+    `);
+  }
+
+  function openAssignmentModal() {
+    openModal(`
+      <div class="section-head"><h2>새 과제 만들기</h2><button class="btn" onclick="closeModal()">닫기</button></div>
+      <div class="form-grid">
+        <div class="field full"><label>과제명</label><input id="assignmentTitle" type="text" placeholder="예: 현재완료 시제 연습" /></div>
+        <div class="field"><label>대상</label><select style="width:100%"><option>중1 A반</option><option>중2 B반</option><option>개별 학생</option></select></div>
+        <div class="field"><label>마감일</label><input type="date" value="2026-08-10" style="width:100%" /></div>
+        <div class="field full"><label>문제 선택</label><div class="list">${state.questions.slice(0,3).map(q => `<label class="list-item" style="justify-content:flex-start"><input type="checkbox" checked /> <span>${q.text}</span></label>`).join('')}</div></div>
+      </div>
+      <div class="actions" style="justify-content:flex-end;margin-top:18px"><button class="btn" onclick="closeModal()">취소</button><button class="btn primary" onclick="saveAssignment()">과제 생성</button></div>
+    `);
+  }
+
+  function saveAssignment() {
+    const title = document.getElementById('assignmentTitle').value || '새 문법 과제';
+    state.assignments.unshift({ id: Date.now(), title, target: '중1 A반', due: '2026-08-10', progress: 0, status: '예정' });
+    closeModal();
+    showToast('과제가 생성되었습니다.');
+    render();
+  }
+
+  function openModal(html) {
+    document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal">${html}</div></div>`;
+  }
+
+  function closeModal() {
+    document.getElementById('modalRoot').innerHTML = '';
+  }
+
+  function showToast(message) {
+    const root = document.getElementById('toastRoot');
+    root.innerHTML = `<div class="toast">${message}</div>`;
+    setTimeout(() => root.innerHTML = '', 1800);
+  }
+
+  document.getElementById('adminRoleBtn').addEventListener('click', () => setRole('admin'));
+  document.getElementById('studentRoleBtn').addEventListener('click', () => setRole('student'));
+  render();
+</script>
+</body>
+</html>
