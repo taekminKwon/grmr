@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   review:
+    if: github.event.label.name == 'ai-review'
+    
     runs-on: ubuntu-latest
 
     steps:
