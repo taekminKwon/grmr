@@ -9,10 +9,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.ewha_eng.grmr.auth.domain.RefreshTokenRepository;
+import com.ewha_eng.grmr.auth.domain.RefreshTokenReader;
+import com.ewha_eng.grmr.auth.domain.RefreshTokenStore;
 import com.ewha_eng.grmr.auth.infrastructure.JwtTokenProvider;
 import com.ewha_eng.grmr.member.domain.Member;
-import com.ewha_eng.grmr.member.domain.MemberRepository;
+import com.ewha_eng.grmr.member.domain.MemberReader;
 import com.ewha_eng.grmr.member.domain.MemberType;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,10 +28,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 class AuthServiceTest {
 
     @Mock
-    private MemberRepository memberRepository;
+    private MemberReader memberReader;
 
     @Mock
-    private RefreshTokenRepository refreshTokenRepository;
+    private RefreshTokenReader refreshTokenReader;
+
+    @Mock
+    private RefreshTokenStore refreshTokenStore;
 
     @Mock
     private JwtTokenProvider jwtTokenProvider;
@@ -42,7 +46,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(memberRepository, refreshTokenRepository, jwtTokenProvider, passwordEncoder);
+        authService = new AuthService(memberReader, refreshTokenReader, refreshTokenStore, jwtTokenProvider, passwordEncoder);
     }
 
     private Member adminMember() {
@@ -57,7 +61,7 @@ class AuthServiceTest {
     @Test
     void login_returnsTokens_whenCredentialsAreValid() {
         Member member = adminMember();
-        when(memberRepository.findByLoginId("admin01")).thenReturn(Optional.of(member));
+        when(memberReader.findByLoginId("admin01")).thenReturn(Optional.of(member));
         when(passwordEncoder.matches("password123!", "hashed-password")).thenReturn(true);
         when(jwtTokenProvider.createAccessToken(any(), eq(MemberType.ADMIN))).thenReturn("access-token");
         when(jwtTokenProvider.createRefreshToken(any())).thenReturn("refresh-token");
@@ -71,12 +75,12 @@ class AuthServiceTest {
         assertThat(result.expiresIn()).isEqualTo(3600L);
         assertThat(result.role()).isEqualTo(MemberType.ADMIN);
         assertThat(result.name()).isEqualTo("권태민");
-        verify(refreshTokenRepository).save(any(), eq("refresh-token"), eq(1_209_600_000L));
+        verify(refreshTokenStore).save(any(), eq("refresh-token"), eq(1_209_600_000L));
     }
 
     @Test
     void login_throwsInvalidCredentials_whenLoginIdNotFound() {
-        when(memberRepository.findByLoginId("unknown")).thenReturn(Optional.empty());
+        when(memberReader.findByLoginId("unknown")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.login("unknown", "password123!"))
             .isInstanceOf(InvalidCredentialsException.class);
@@ -85,7 +89,7 @@ class AuthServiceTest {
     @Test
     void login_throwsInvalidCredentials_whenPasswordDoesNotMatch() {
         Member member = adminMember();
-        when(memberRepository.findByLoginId("admin01")).thenReturn(Optional.of(member));
+        when(memberReader.findByLoginId("admin01")).thenReturn(Optional.of(member));
         when(passwordEncoder.matches("wrong-password", "hashed-password")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.login("admin01", "wrong-password"))
@@ -96,10 +100,10 @@ class AuthServiceTest {
     void refresh_reissuesTokens_whenRefreshTokenIsValidAndMatchesStore() {
         when(jwtTokenProvider.isValid("refresh-token")).thenReturn(true);
         when(jwtTokenProvider.getMemberId("refresh-token")).thenReturn(1L);
-        when(refreshTokenRepository.findByMemberId(1L)).thenReturn(Optional.of("refresh-token"));
+        when(refreshTokenReader.findByMemberId(1L)).thenReturn(Optional.of("refresh-token"));
         Member storedMember = adminMember();
         ReflectionTestUtils.setField(storedMember, "id", 1L);
-        when(memberRepository.findById(1L)).thenReturn(Optional.of(storedMember));
+        when(memberReader.findById(1L)).thenReturn(Optional.of(storedMember));
         when(jwtTokenProvider.createAccessToken(eq(1L), any())).thenReturn("new-access-token");
         when(jwtTokenProvider.createRefreshToken(1L)).thenReturn("new-refresh-token");
         when(jwtTokenProvider.getAccessTokenExpirationSeconds()).thenReturn(3600L);
@@ -109,7 +113,7 @@ class AuthServiceTest {
 
         assertThat(result.accessToken()).isEqualTo("new-access-token");
         assertThat(result.refreshToken()).isEqualTo("new-refresh-token");
-        verify(refreshTokenRepository).save(eq(1L), eq("new-refresh-token"), eq(1_209_600_000L));
+        verify(refreshTokenStore).save(eq(1L), eq("new-refresh-token"), eq(1_209_600_000L));
     }
 
     @Test
@@ -124,7 +128,7 @@ class AuthServiceTest {
     void refresh_throwsInvalidRefreshToken_whenTokenNotFoundInStore() {
         when(jwtTokenProvider.isValid("refresh-token")).thenReturn(true);
         when(jwtTokenProvider.getMemberId("refresh-token")).thenReturn(1L);
-        when(refreshTokenRepository.findByMemberId(1L)).thenReturn(Optional.empty());
+        when(refreshTokenReader.findByMemberId(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.refresh("refresh-token"))
             .isInstanceOf(InvalidRefreshTokenException.class);
@@ -134,7 +138,7 @@ class AuthServiceTest {
     void refresh_throwsInvalidRefreshToken_whenStoredTokenDoesNotMatch() {
         when(jwtTokenProvider.isValid("refresh-token")).thenReturn(true);
         when(jwtTokenProvider.getMemberId("refresh-token")).thenReturn(1L);
-        when(refreshTokenRepository.findByMemberId(1L)).thenReturn(Optional.of("a-different-token"));
+        when(refreshTokenReader.findByMemberId(1L)).thenReturn(Optional.of("a-different-token"));
 
         assertThatThrownBy(() -> authService.refresh("refresh-token"))
             .isInstanceOf(InvalidRefreshTokenException.class);
@@ -147,7 +151,7 @@ class AuthServiceTest {
 
         authService.logout("refresh-token");
 
-        verify(refreshTokenRepository).deleteByMemberId(1L);
+        verify(refreshTokenStore).deleteByMemberId(1L);
     }
 
     @Test
@@ -156,6 +160,6 @@ class AuthServiceTest {
 
         authService.logout("bad-token");
 
-        verify(refreshTokenRepository, never()).deleteByMemberId(anyLong());
+        verify(refreshTokenStore, never()).deleteByMemberId(anyLong());
     }
 }

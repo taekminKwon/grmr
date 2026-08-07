@@ -1,6 +1,7 @@
 package com.ewha_eng.grmr.auth.infrastructure;
 
-import com.ewha_eng.grmr.auth.domain.RefreshTokenRepository;
+import com.ewha_eng.grmr.auth.domain.RefreshTokenReader;
+import com.ewha_eng.grmr.auth.domain.RefreshTokenStore;
 import java.time.Duration;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +10,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
-public class RedisRefreshTokenRepository implements RefreshTokenRepository {
+public class RedisRefreshTokenRepository implements RefreshTokenReader, RefreshTokenStore {
 
     private static final String KEY_PREFIX = "refresh-token:";
 
