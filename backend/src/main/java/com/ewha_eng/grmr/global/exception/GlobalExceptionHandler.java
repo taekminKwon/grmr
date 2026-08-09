@@ -2,6 +2,7 @@ package com.ewha_eng.grmr.global.exception;
 
 import com.ewha_eng.grmr.auth.application.InvalidCredentialsException;
 import com.ewha_eng.grmr.auth.application.InvalidRefreshTokenException;
+import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,5 +21,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(InvalidRefreshTokenException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
             .body(new ErrorResponse("INVALID_REFRESH_TOKEN", e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidQuestionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidQuestion(InvalidQuestionException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_QUESTION", e.getMessage()));
     }
 }

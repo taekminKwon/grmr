@@ -72,10 +72,10 @@ public class Question {
     private static void validate(QuestionType type, List<String> choices, String answer) {
         if (type == QuestionType.MULTIPLE_CHOICE) {
             if (choices == null || choices.isEmpty()) {
-                throw new IllegalArgumentException("객관식 문제는 보기 목록이 필요합니다.");
+                throw new InvalidQuestionException("객관식 문제는 보기 목록이 필요합니다.");
             }
             if (!choices.contains(answer)) {
-                throw new IllegalArgumentException("정답은 보기 목록에 포함되어야 합니다.");
+                throw new InvalidQuestionException("정답은 보기 목록에 포함되어야 합니다.");
             }
         }
     }

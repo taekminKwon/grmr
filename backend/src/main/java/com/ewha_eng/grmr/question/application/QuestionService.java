@@ -1,0 +1,33 @@
+package com.ewha_eng.grmr.question.application;
+
+import com.ewha_eng.grmr.question.domain.Question;
+import com.ewha_eng.grmr.question.domain.QuestionLevel;
+import com.ewha_eng.grmr.question.domain.QuestionRepository;
+import com.ewha_eng.grmr.question.domain.QuestionType;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class QuestionService {
+
+    private final QuestionRepository questionRepository;
+
+    @Transactional
+    public Question create(String category, QuestionType type, QuestionLevel level, String text,
+        List<String> choices, String answer, String explanation) {
+        Question question = Question.builder()
+            .category(category)
+            .type(type)
+            .level(level)
+            .text(text)
+            .choices(choices)
+            .answer(answer)
+            .explanation(explanation)
+            .build();
+
+        return questionRepository.save(question);
+    }
+}

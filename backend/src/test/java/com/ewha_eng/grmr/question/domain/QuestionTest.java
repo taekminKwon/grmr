@@ -34,7 +34,7 @@ class QuestionTest {
             .answer("since")
             .explanation("해설")
             .build())
-            .isInstanceOf(IllegalArgumentException.class);
+            .isInstanceOf(InvalidQuestionException.class);
     }
 
     @Test
@@ -48,7 +48,7 @@ class QuestionTest {
             .answer("since")
             .explanation("해설")
             .build())
-            .isInstanceOf(IllegalArgumentException.class);
+            .isInstanceOf(InvalidQuestionException.class);
     }
 
     @Test
