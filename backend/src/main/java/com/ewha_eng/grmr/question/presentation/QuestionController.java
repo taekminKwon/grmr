@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -82,6 +83,13 @@ public class QuestionController {
         );
 
         return ResponseEntity.ok(QuestionGenerateResponse.from(drafts));
+    }
+
+    @PostMapping("/generate/save")
+    public ResponseEntity<QuestionSaveResponse> saveGenerated(@RequestBody QuestionSaveRequest request) {
+        List<Question> questions = questionService.saveDrafts(request.toDrafts());
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(QuestionSaveResponse.from(questions));
     }
 
     @GetMapping("/{id}")

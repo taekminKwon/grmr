@@ -2,6 +2,7 @@ package com.ewha_eng.grmr.question.application;
 
 import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
 import com.ewha_eng.grmr.question.domain.Question;
+import com.ewha_eng.grmr.question.domain.QuestionDraft;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import com.ewha_eng.grmr.question.domain.QuestionRepository;
@@ -35,6 +36,14 @@ public class QuestionService {
             .build();
 
         return questionRepository.save(question);
+    }
+
+    @Transactional
+    public List<Question> saveDrafts(List<QuestionDraft> drafts) {
+        return drafts.stream()
+            .map(draft -> create(draft.category(), draft.type(), draft.level(), draft.text(), draft.choices(),
+                draft.answer(), draft.explanation()))
+            .toList();
     }
 
     @Transactional(readOnly = true)

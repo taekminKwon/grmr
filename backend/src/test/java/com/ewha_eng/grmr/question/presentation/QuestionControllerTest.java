@@ -320,6 +320,124 @@ class QuestionControllerTest {
     }
 
     @Test
+    void saveGenerated_returns201_withSavedDraftQuestions_whenPayloadIsValid() throws Exception {
+        authenticateAsAdmin();
+
+        Question question = Question.builder()
+            .category("현재완료")
+            .type(QuestionType.MULTIPLE_CHOICE)
+            .level(QuestionLevel.INTERMEDIATE)
+            .text("She has studied English _____ three years.")
+            .choices(List.of("for", "since", "during", "from"))
+            .answer("for")
+            .explanation("기간을 나타낼 때 for를 사용합니다.")
+            .build();
+        ReflectionTestUtils.setField(question, "id", 1031L);
+
+        when(questionService.saveDrafts(anyList())).thenReturn(List.of(question));
+
+        QuestionDraftItemRequest draft = new QuestionDraftItemRequest(
+            "현재완료",
+            "객관식",
+            "보통",
+            "She has studied English _____ three years.",
+            List.of("for", "since", "during", "from"),
+            "for",
+            "기간을 나타낼 때 for를 사용합니다."
+        );
+        QuestionSaveRequest request = new QuestionSaveRequest(List.of(draft));
+
+        mockMvc.perform(post("/api/questions/generate/save")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.saved[0].id").value(1031))
+            .andExpect(jsonPath("$.saved[0].category").value("현재완료"))
+            .andExpect(jsonPath("$.saved[0].type").value("객관식"))
+            .andExpect(jsonPath("$.saved[0].level").value("보통"))
+            .andExpect(jsonPath("$.saved[0].status").value("초안"))
+            .andExpect(jsonPath("$.saved[0].text").value("She has studied English _____ three years."));
+    }
+
+    @Test
+    void saveGenerated_returns400_withInvalidQuestionCode_whenDraftsIsEmpty() throws Exception {
+        authenticateAsAdmin();
+
+        QuestionSaveRequest request = new QuestionSaveRequest(List.of());
+
+        mockMvc.perform(post("/api/questions/generate/save")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+    }
+
+    @Test
+    void saveGenerated_returns400_withInvalidQuestionCode_whenDraftTypeIsUnknown() throws Exception {
+        authenticateAsAdmin();
+
+        QuestionDraftItemRequest draft = new QuestionDraftItemRequest(
+            "현재완료", "알 수 없음", "보통", "text", List.of("a", "b"), "a", "해설");
+        QuestionSaveRequest request = new QuestionSaveRequest(List.of(draft));
+
+        mockMvc.perform(post("/api/questions/generate/save")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+    }
+
+    @Test
+    void saveGenerated_returns400_withInvalidQuestionCode_whenDraftLevelIsUnknown() throws Exception {
+        authenticateAsAdmin();
+
+        QuestionDraftItemRequest draft = new QuestionDraftItemRequest(
+            "현재완료", "객관식", "매우 어려움", "text", List.of("a", "b"), "a", "해설");
+        QuestionSaveRequest request = new QuestionSaveRequest(List.of(draft));
+
+        mockMvc.perform(post("/api/questions/generate/save")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+    }
+
+    @Test
+    void saveGenerated_returns400_withInvalidQuestionCode_whenAnswerIsNotInChoices() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionService.saveDrafts(anyList()))
+            .thenThrow(new InvalidQuestionException("정답은 보기 목록에 포함되어야 합니다."));
+
+        QuestionDraftItemRequest draft = new QuestionDraftItemRequest(
+            "현재완료", "객관식", "보통", "text", List.of("a", "b"), "since", "해설");
+        QuestionSaveRequest request = new QuestionSaveRequest(List.of(draft));
+
+        mockMvc.perform(post("/api/questions/generate/save")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+    }
+
+    @Test
+    void saveGenerated_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
+        QuestionDraftItemRequest draft = new QuestionDraftItemRequest(
+            "현재완료", "객관식", "보통", "text", List.of("a", "b"), "a", "해설");
+        QuestionSaveRequest request = new QuestionSaveRequest(List.of(draft));
+
+        mockMvc.perform(post("/api/questions/generate/save")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void getById_returns200_withQuestion_whenQuestionExists() throws Exception {
         authenticateAsAdmin();
 
