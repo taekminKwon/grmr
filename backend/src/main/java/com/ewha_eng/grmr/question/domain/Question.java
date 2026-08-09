@@ -69,6 +69,27 @@ public class Question {
         this.createdAt = LocalDateTime.now();
     }
 
+    public void update(String category, QuestionType type, QuestionLevel level, String text,
+        List<String> choices, String answer, String explanation) {
+        String newCategory = category != null ? category : this.category;
+        QuestionType newType = type != null ? type : this.type;
+        QuestionLevel newLevel = level != null ? level : this.level;
+        String newText = text != null ? text : this.text;
+        List<String> newChoices = choices != null ? choices : this.choices;
+        String newAnswer = answer != null ? answer : this.answer;
+        String newExplanation = explanation != null ? explanation : this.explanation;
+
+        validate(newType, newChoices, newAnswer);
+
+        this.category = newCategory;
+        this.type = newType;
+        this.level = newLevel;
+        this.text = newText;
+        this.choices = newType == QuestionType.MULTIPLE_CHOICE ? new ArrayList<>(newChoices) : List.of();
+        this.answer = newAnswer;
+        this.explanation = newExplanation;
+    }
+
     private static void validate(QuestionType type, List<String> choices, String answer) {
         if (type == QuestionType.MULTIPLE_CHOICE) {
             if (choices == null || choices.isEmpty()) {

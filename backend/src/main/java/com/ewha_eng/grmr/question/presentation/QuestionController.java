@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -69,6 +70,22 @@ public class QuestionController {
     @GetMapping("/{id}")
     public ResponseEntity<QuestionResponse> getById(@PathVariable Long id) {
         Question question = questionService.getById(id);
+
+        return ResponseEntity.ok(QuestionResponse.from(question));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<QuestionResponse> update(@PathVariable Long id, @RequestBody QuestionUpdateRequest request) {
+        Question question = questionService.update(
+            id,
+            request.category(),
+            request.toQuestionType(),
+            request.toQuestionLevel(),
+            request.text(),
+            request.choices(),
+            request.answer(),
+            request.explanation()
+        );
 
         return ResponseEntity.ok(QuestionResponse.from(question));
     }

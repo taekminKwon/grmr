@@ -100,6 +100,37 @@ class QuestionTest {
         assertThat(question.isInactive()).isTrue();
     }
 
+    @Test
+    void update_changesOnlyProvidedFields_andPreservesIdStatusAndCreatedAt() {
+        Question question = fillInBlankQuestion();
+        question.activate();
+
+        question.update(null, null, null, "This is the book _____ I bought yesterday, updated.", null, null,
+            "수정된 해설");
+
+        assertThat(question.getText()).isEqualTo("This is the book _____ I bought yesterday, updated.");
+        assertThat(question.getExplanation()).isEqualTo("수정된 해설");
+        assertThat(question.getCategory()).isEqualTo("관계대명사");
+        assertThat(question.getAnswer()).isEqualTo("that");
+        assertThat(question.isActive()).isTrue();
+    }
+
+    @Test
+    void update_throws_whenUpdatedAnswerIsNotInExistingChoices() {
+        Question question = Question.builder()
+            .category("현재완료")
+            .type(QuestionType.MULTIPLE_CHOICE)
+            .level(QuestionLevel.INTERMEDIATE)
+            .text("He has lived here _____ 2010.")
+            .choices(List.of("for", "since", "during", "from"))
+            .answer("since")
+            .explanation("해설")
+            .build();
+
+        assertThatThrownBy(() -> question.update(null, null, null, null, null, "because", null))
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
     private Question fillInBlankQuestion() {
         return Question.builder()
             .category("관계대명사")

@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -256,6 +257,86 @@ class QuestionControllerTest {
     @Test
     void getById_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
         mockMvc.perform(get("/api/questions/1"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void update_returns200_withUpdatedQuestion_whenPayloadIsValid() throws Exception {
+        authenticateAsAdmin();
+
+        Question question = Question.builder()
+            .category("현재완료")
+            .type(QuestionType.MULTIPLE_CHOICE)
+            .level(QuestionLevel.INTERMEDIATE)
+            .text("He has lived here _____ 2015.")
+            .choices(List.of("for", "since", "during", "from"))
+            .answer("since")
+            .explanation("수정된 해설")
+            .build();
+        ReflectionTestUtils.setField(question, "id", 1L);
+
+        when(questionService.update(eq(1L), isNull(), isNull(), isNull(), anyString(), isNull(), isNull(),
+            anyString()))
+            .thenReturn(question);
+
+        QuestionUpdateRequest request = new QuestionUpdateRequest(
+            null, null, null, "He has lived here _____ 2015.", null, null, "수정된 해설");
+
+        mockMvc.perform(patch("/api/questions/1")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.text").value("He has lived here _____ 2015."))
+            .andExpect(jsonPath("$.explanation").value("수정된 해설"));
+    }
+
+    @Test
+    void update_returns400_withInvalidQuestionCode_whenAnswerIsNotInChoices() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionService.update(eq(1L), isNull(), isNull(), isNull(), isNull(), isNull(), anyString(),
+            isNull()))
+            .thenThrow(new InvalidQuestionException("정답은 보기 목록에 포함되어야 합니다."));
+
+        QuestionUpdateRequest request = new QuestionUpdateRequest(
+            null, null, null, null, null, "because", null);
+
+        mockMvc.perform(patch("/api/questions/1")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+    }
+
+    @Test
+    void update_returns404_withQuestionNotFoundCode_whenQuestionDoesNotExist() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionService.update(eq(999L), isNull(), isNull(), isNull(), anyString(), isNull(), isNull(),
+            isNull()))
+            .thenThrow(new QuestionNotFoundException("문제를 찾을 수 없습니다."));
+
+        QuestionUpdateRequest request = new QuestionUpdateRequest(
+            null, null, null, "수정된 본문", null, null, null);
+
+        mockMvc.perform(patch("/api/questions/999")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("QUESTION_NOT_FOUND"));
+    }
+
+    @Test
+    void update_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
+        QuestionUpdateRequest request = new QuestionUpdateRequest(
+            null, null, null, "수정된 본문", null, null, null);
+
+        mockMvc.perform(patch("/api/questions/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isUnauthorized());
     }
 

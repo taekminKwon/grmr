@@ -42,6 +42,15 @@ public class QuestionService {
             .orElseThrow(() -> new QuestionNotFoundException("문제를 찾을 수 없습니다."));
     }
 
+    @Transactional
+    public Question update(Long id, String category, QuestionType type, QuestionLevel level, String text,
+        List<String> choices, String answer, String explanation) {
+        Question question = questionRepository.findById(id)
+            .orElseThrow(() -> new QuestionNotFoundException("문제를 찾을 수 없습니다."));
+        question.update(category, type, level, text, choices, answer, explanation);
+        return question;
+    }
+
     @Transactional(readOnly = true)
     public Page<Question> search(String category, QuestionType type, QuestionLevel level, QuestionStatus status,
         String keyword, Pageable pageable) {
