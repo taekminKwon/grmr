@@ -65,6 +65,33 @@ class QuestionTest {
     }
 
     @Test
+    void builder_createsDraftQuestion_whenCategoryLengthIsExactlyMax() {
+        Question question = Question.builder()
+            .category("가".repeat(100))
+            .type(QuestionType.FILL_IN_BLANK)
+            .level(QuestionLevel.BASIC)
+            .text("This is the book _____ I bought yesterday.")
+            .answer("that")
+            .explanation("해설")
+            .build();
+
+        assertThat(question.getCategory()).hasSize(100);
+    }
+
+    @Test
+    void builder_throws_whenCategoryExceedsMaxLength() {
+        assertThatThrownBy(() -> Question.builder()
+            .category("가".repeat(101))
+            .type(QuestionType.FILL_IN_BLANK)
+            .level(QuestionLevel.BASIC)
+            .text("This is the book _____ I bought yesterday.")
+            .answer("that")
+            .explanation("해설")
+            .build())
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
+    @Test
     void builder_throws_whenCategoryIsNull() {
         assertThatThrownBy(() -> Question.builder()
             .type(QuestionType.FILL_IN_BLANK)
@@ -239,6 +266,14 @@ class QuestionTest {
         assertThat(question.getAnswer()).isEqualTo("that");
         assertThat(question.getExplanation()).isEqualTo("해설");
         assertThat(question.getText()).isEqualTo("updated text");
+    }
+
+    @Test
+    void update_throws_whenCategoryIsUpdatedToExceedMaxLength() {
+        Question question = fillInBlankQuestion();
+
+        assertThatThrownBy(() -> question.update("가".repeat(101), null, null, null, null, null, null))
+            .isInstanceOf(InvalidQuestionException.class);
     }
 
     @Test

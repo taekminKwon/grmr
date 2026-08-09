@@ -23,11 +23,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Question {
 
+    private static final int CATEGORY_MAX_LENGTH = 100;
+
     @Id
     @GeneratedValue
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 100)
     private String category;
 
     @Enumerated(EnumType.STRING)
@@ -100,6 +102,9 @@ public class Question {
         List<String> choices, String answer, String explanation) {
         if (category == null || category.isBlank()) {
             throw new InvalidQuestionException("문법 항목은 필수입니다.");
+        }
+        if (category.length() > CATEGORY_MAX_LENGTH) {
+            throw new InvalidQuestionException("문법 항목은 " + CATEGORY_MAX_LENGTH + "자를 초과할 수 없습니다.");
         }
         if (type == null) {
             throw new InvalidQuestionException("문제 유형은 필수입니다.");
