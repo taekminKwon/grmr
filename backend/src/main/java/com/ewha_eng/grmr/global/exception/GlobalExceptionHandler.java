@@ -3,6 +3,7 @@ package com.ewha_eng.grmr.global.exception;
 import com.ewha_eng.grmr.auth.application.InvalidCredentialsException;
 import com.ewha_eng.grmr.auth.application.InvalidRefreshTokenException;
 import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
+import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -27,5 +28,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInvalidQuestion(InvalidQuestionException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(new ErrorResponse("INVALID_QUESTION", e.getMessage()));
+    }
+
+    @ExceptionHandler(QuestionNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleQuestionNotFound(QuestionNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ErrorResponse("QUESTION_NOT_FOUND", e.getMessage()));
     }
 }

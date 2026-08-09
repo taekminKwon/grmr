@@ -2,6 +2,7 @@ package com.ewha_eng.grmr.question.application;
 
 import com.ewha_eng.grmr.question.domain.Question;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
+import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import com.ewha_eng.grmr.question.domain.QuestionRepository;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import java.util.List;
@@ -29,5 +30,11 @@ public class QuestionService {
             .build();
 
         return questionRepository.save(question);
+    }
+
+    @Transactional(readOnly = true)
+    public Question getById(Long id) {
+        return questionRepository.findById(id)
+            .orElseThrow(() -> new QuestionNotFoundException("문제를 찾을 수 없습니다."));
     }
 }

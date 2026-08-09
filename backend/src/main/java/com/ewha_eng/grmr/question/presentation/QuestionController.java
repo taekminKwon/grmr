@@ -5,6 +5,8 @@ import com.ewha_eng.grmr.question.domain.Question;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,5 +34,12 @@ public class QuestionController {
         return ResponseEntity
             .created(URI.create("/api/questions/" + question.getId()))
             .body(QuestionResponse.from(question));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<QuestionResponse> getById(@PathVariable Long id) {
+        Question question = questionService.getById(id);
+
+        return ResponseEntity.ok(QuestionResponse.from(question));
     }
 }

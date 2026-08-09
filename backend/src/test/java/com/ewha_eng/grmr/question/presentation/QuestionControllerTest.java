@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -21,6 +22,7 @@ import com.ewha_eng.grmr.question.application.QuestionService;
 import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
 import com.ewha_eng.grmr.question.domain.Question;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
+import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -172,6 +174,50 @@ class QuestionControllerTest {
         mockMvc.perform(post("/api/questions")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getById_returns200_withQuestion_whenQuestionExists() throws Exception {
+        authenticateAsAdmin();
+
+        Question question = Question.builder()
+            .category("현재완료")
+            .type(QuestionType.MULTIPLE_CHOICE)
+            .level(QuestionLevel.INTERMEDIATE)
+            .text("He has lived here _____ 2010.")
+            .choices(List.of("for", "since", "during", "from"))
+            .answer("since")
+            .explanation("특정 시작 시점과 현재완료가 함께 쓰일 때 since를 사용합니다.")
+            .build();
+        ReflectionTestUtils.setField(question, "id", 1L);
+
+        when(questionService.getById(1L)).thenReturn(question);
+
+        mockMvc.perform(get("/api/questions/1")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(1))
+            .andExpect(jsonPath("$.status").value("초안"))
+            .andExpect(jsonPath("$.answer").value("since"));
+    }
+
+    @Test
+    void getById_returns404_withQuestionNotFoundCode_whenQuestionDoesNotExist() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionService.getById(999L))
+            .thenThrow(new QuestionNotFoundException("문제를 찾을 수 없습니다."));
+
+        mockMvc.perform(get("/api/questions/999")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("QUESTION_NOT_FOUND"));
+    }
+
+    @Test
+    void getById_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
+        mockMvc.perform(get("/api/questions/1"))
             .andExpect(status().isUnauthorized());
     }
 
