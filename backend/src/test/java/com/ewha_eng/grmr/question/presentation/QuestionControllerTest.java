@@ -188,6 +188,31 @@ class QuestionControllerTest {
     }
 
     @Test
+    void create_returns400_withInvalidQuestionCode_whenCategoryIsBlank() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionService.create(anyString(), any(), any(), anyString(), anyList(), anyString(), anyString()))
+            .thenThrow(new InvalidQuestionException("문법 항목은 필수입니다."));
+
+        QuestionCreateRequest request = new QuestionCreateRequest(
+            "   ",
+            "객관식",
+            "보통",
+            "He has lived here _____ 2010.",
+            List.of("for", "since", "during", "from"),
+            "since",
+            "해설"
+        );
+
+        mockMvc.perform(post("/api/questions")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+    }
+
+    @Test
     void create_returns400_withInvalidQuestionCode_whenAnswerIsNotInChoices() throws Exception {
         authenticateAsAdmin();
 

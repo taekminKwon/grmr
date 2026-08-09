@@ -27,37 +27,43 @@ public class Question {
     @GeneratedValue
     private Long id;
 
+    @Column(nullable = false)
     private String category;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private QuestionType type;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private QuestionLevel level;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private QuestionStatus status;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String text;
 
     @ElementCollection
     @CollectionTable(name = "question_choice", joinColumns = @JoinColumn(name = "question_id"))
     @OrderColumn(name = "choice_order")
-    @Column(name = "choice")
+    @Column(name = "choice", nullable = false)
     private List<String> choices = new ArrayList<>();
 
+    @Column(nullable = false)
     private String answer;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String explanation;
 
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @Builder
     private Question(String category, QuestionType type, QuestionLevel level, String text,
         List<String> choices, String answer, String explanation) {
-        validate(type, choices, answer);
+        validate(category, type, level, text, choices, answer, explanation);
         this.category = category;
         this.type = type;
         this.level = level;
@@ -79,7 +85,7 @@ public class Question {
         String newAnswer = answer != null ? answer : this.answer;
         String newExplanation = explanation != null ? explanation : this.explanation;
 
-        validate(newType, newChoices, newAnswer);
+        validate(newCategory, newType, newLevel, newText, newChoices, newAnswer, newExplanation);
 
         this.category = newCategory;
         this.type = newType;
@@ -90,7 +96,26 @@ public class Question {
         this.explanation = newExplanation;
     }
 
-    private static void validate(QuestionType type, List<String> choices, String answer) {
+    private static void validate(String category, QuestionType type, QuestionLevel level, String text,
+        List<String> choices, String answer, String explanation) {
+        if (category == null || category.isBlank()) {
+            throw new InvalidQuestionException("문법 항목은 필수입니다.");
+        }
+        if (type == null) {
+            throw new InvalidQuestionException("문제 유형은 필수입니다.");
+        }
+        if (level == null) {
+            throw new InvalidQuestionException("난이도는 필수입니다.");
+        }
+        if (text == null || text.isBlank()) {
+            throw new InvalidQuestionException("본문은 필수입니다.");
+        }
+        if (answer == null || answer.isBlank()) {
+            throw new InvalidQuestionException("정답은 필수입니다.");
+        }
+        if (explanation == null || explanation.isBlank()) {
+            throw new InvalidQuestionException("해설은 필수입니다.");
+        }
         if (type == QuestionType.MULTIPLE_CHOICE) {
             if (choices == null || choices.isEmpty()) {
                 throw new InvalidQuestionException("객관식 문제는 보기 목록이 필요합니다.");

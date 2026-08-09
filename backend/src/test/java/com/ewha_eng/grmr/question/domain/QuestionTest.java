@@ -52,6 +52,94 @@ class QuestionTest {
     }
 
     @Test
+    void builder_throws_whenCategoryIsBlank() {
+        assertThatThrownBy(() -> Question.builder()
+            .category("   ")
+            .type(QuestionType.FILL_IN_BLANK)
+            .level(QuestionLevel.BASIC)
+            .text("This is the book _____ I bought yesterday.")
+            .answer("that")
+            .explanation("해설")
+            .build())
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
+    @Test
+    void builder_throws_whenCategoryIsNull() {
+        assertThatThrownBy(() -> Question.builder()
+            .type(QuestionType.FILL_IN_BLANK)
+            .level(QuestionLevel.BASIC)
+            .text("This is the book _____ I bought yesterday.")
+            .answer("that")
+            .explanation("해설")
+            .build())
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
+    @Test
+    void builder_throws_whenTypeIsNull() {
+        assertThatThrownBy(() -> Question.builder()
+            .category("관계대명사")
+            .level(QuestionLevel.BASIC)
+            .text("This is the book _____ I bought yesterday.")
+            .answer("that")
+            .explanation("해설")
+            .build())
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
+    @Test
+    void builder_throws_whenLevelIsNull() {
+        assertThatThrownBy(() -> Question.builder()
+            .category("관계대명사")
+            .type(QuestionType.FILL_IN_BLANK)
+            .text("This is the book _____ I bought yesterday.")
+            .answer("that")
+            .explanation("해설")
+            .build())
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
+    @Test
+    void builder_throws_whenTextIsBlank() {
+        assertThatThrownBy(() -> Question.builder()
+            .category("관계대명사")
+            .type(QuestionType.FILL_IN_BLANK)
+            .level(QuestionLevel.BASIC)
+            .text("   ")
+            .answer("that")
+            .explanation("해설")
+            .build())
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
+    @Test
+    void builder_throws_whenAnswerIsBlank() {
+        assertThatThrownBy(() -> Question.builder()
+            .category("관계대명사")
+            .type(QuestionType.FILL_IN_BLANK)
+            .level(QuestionLevel.BASIC)
+            .text("This is the book _____ I bought yesterday.")
+            .answer("   ")
+            .explanation("해설")
+            .build())
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
+    @Test
+    void builder_throws_whenExplanationIsBlank() {
+        assertThatThrownBy(() -> Question.builder()
+            .category("관계대명사")
+            .type(QuestionType.FILL_IN_BLANK)
+            .level(QuestionLevel.BASIC)
+            .text("This is the book _____ I bought yesterday.")
+            .answer("that")
+            .explanation("   ")
+            .build())
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
+    @Test
     void builder_allowsEmptyChoices_whenTypeIsNotMultipleChoice() {
         Question question = Question.builder()
             .category("관계대명사")
@@ -113,6 +201,44 @@ class QuestionTest {
         assertThat(question.getCategory()).isEqualTo("관계대명사");
         assertThat(question.getAnswer()).isEqualTo("that");
         assertThat(question.isActive()).isTrue();
+    }
+
+    @Test
+    void update_throws_whenTextIsUpdatedToBlank() {
+        Question question = fillInBlankQuestion();
+
+        assertThatThrownBy(() -> question.update(null, null, null, "   ", null, null, null))
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
+    @Test
+    void update_throws_whenAnswerIsUpdatedToBlank() {
+        Question question = fillInBlankQuestion();
+
+        assertThatThrownBy(() -> question.update(null, null, null, null, null, "   ", null))
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
+    @Test
+    void update_throws_whenExplanationIsUpdatedToBlank() {
+        Question question = fillInBlankQuestion();
+
+        assertThatThrownBy(() -> question.update(null, null, null, null, null, null, "   "))
+            .isInstanceOf(InvalidQuestionException.class);
+    }
+
+    @Test
+    void update_preservesExistingRequiredValues_whenOnlyOneFieldIsProvided() {
+        Question question = fillInBlankQuestion();
+
+        question.update(null, null, null, "updated text", null, null, null);
+
+        assertThat(question.getCategory()).isEqualTo("관계대명사");
+        assertThat(question.getType()).isEqualTo(QuestionType.FILL_IN_BLANK);
+        assertThat(question.getLevel()).isEqualTo(QuestionLevel.BASIC);
+        assertThat(question.getAnswer()).isEqualTo("that");
+        assertThat(question.getExplanation()).isEqualTo("해설");
+        assertThat(question.getText()).isEqualTo("updated text");
     }
 
     @Test
