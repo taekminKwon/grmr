@@ -32,6 +32,12 @@ public class GlobalExceptionHandler {
             .body(new ErrorResponse("INVALID_QUESTION", e.getMessage()));
     }
 
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRequest(InvalidRequestException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
+    }
+
     @ExceptionHandler(QuestionNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleQuestionNotFound(QuestionNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)

@@ -1,5 +1,6 @@
 package com.ewha_eng.grmr.question.presentation;
 
+import com.ewha_eng.grmr.global.exception.InvalidRequestException;
 import com.ewha_eng.grmr.question.application.QuestionGenerationService;
 import com.ewha_eng.grmr.question.application.QuestionService;
 import com.ewha_eng.grmr.question.domain.Question;
@@ -42,6 +43,13 @@ public class QuestionController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
+        if (page < 0) {
+            throw new InvalidRequestException("페이지 번호는 0 이상이어야 합니다: " + page);
+        }
+        if (size < 1 || size > 100) {
+            throw new InvalidRequestException("페이지 크기는 1 이상 100 이하이어야 합니다: " + size);
+        }
+
         Pageable pageable = PageRequest.of(page, size);
         Page<Question> questions = questionService.search(
             category,

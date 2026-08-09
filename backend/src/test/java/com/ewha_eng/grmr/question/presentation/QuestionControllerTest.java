@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -29,6 +31,7 @@ import com.ewha_eng.grmr.question.domain.Question;
 import com.ewha_eng.grmr.question.domain.QuestionDraft;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
+import com.ewha_eng.grmr.question.domain.QuestionStatus;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -101,6 +104,170 @@ class QuestionControllerTest {
     void search_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
         mockMvc.perform(get("/api/questions"))
             .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void search_returns403_whenAccessTokenIsStudentRole() throws Exception {
+        authenticateAsStudent();
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        verify(questionService, never()).search(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void search_returns200_withConvertedFilters_whenAllFiltersAreValid() throws Exception {
+        authenticateAsAdmin();
+
+        Question question = Question.builder()
+            .category("현재완료")
+            .type(QuestionType.MULTIPLE_CHOICE)
+            .level(QuestionLevel.INTERMEDIATE)
+            .text("He has lived here _____ 2010.")
+            .choices(List.of("for", "since", "during", "from"))
+            .answer("since")
+            .explanation("설명")
+            .build();
+        ReflectionTestUtils.setField(question, "id", 1L);
+
+        when(questionService.search(eq("현재완료"), eq(QuestionType.MULTIPLE_CHOICE), eq(QuestionLevel.INTERMEDIATE),
+            eq(QuestionStatus.ACTIVE), eq("since"), eq(PageRequest.of(2, 10))))
+            .thenReturn(new PageImpl<>(List.of(question), PageRequest.of(2, 10), 1));
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token")
+                .param("category", "현재완료")
+                .param("type", "객관식")
+                .param("level", "보통")
+                .param("status", "사용 중")
+                .param("keyword", "since")
+                .param("page", "2")
+                .param("size", "10"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].id").value(1));
+
+        verify(questionService).search("현재완료", QuestionType.MULTIPLE_CHOICE, QuestionLevel.INTERMEDIATE,
+            QuestionStatus.ACTIVE, "since", PageRequest.of(2, 10));
+    }
+
+    @Test
+    void search_returns400_withInvalidQuestionCode_whenTypeIsUnknown() throws Exception {
+        authenticateAsAdmin();
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token")
+                .param("type", "알 수 없음"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+
+        verify(questionService, never()).search(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void search_returns400_withInvalidQuestionCode_whenLevelIsUnknown() throws Exception {
+        authenticateAsAdmin();
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token")
+                .param("level", "매우 어려움"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+
+        verify(questionService, never()).search(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void search_returns400_withInvalidQuestionCode_whenStatusIsUnknown() throws Exception {
+        authenticateAsAdmin();
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token")
+                .param("status", "알 수 없음"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+
+        verify(questionService, never()).search(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void search_returns400_withInvalidRequestCode_whenPageIsNegative() throws Exception {
+        authenticateAsAdmin();
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token")
+                .param("page", "-1"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+        verify(questionService, never()).search(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void search_returns400_withInvalidRequestCode_whenSizeIsZero() throws Exception {
+        authenticateAsAdmin();
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token")
+                .param("size", "0"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+        verify(questionService, never()).search(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void search_returns400_withInvalidRequestCode_whenSizeExceedsMaximum() throws Exception {
+        authenticateAsAdmin();
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token")
+                .param("size", "101"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+        verify(questionService, never()).search(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void search_returns200_whenPageIsZeroBoundary() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionService.search(isNull(), isNull(), isNull(), isNull(), isNull(), eq(PageRequest.of(0, 20))))
+            .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token")
+                .param("page", "0"))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void search_returns200_whenSizeIsOneBoundary() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionService.search(isNull(), isNull(), isNull(), isNull(), isNull(), eq(PageRequest.of(0, 1))))
+            .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 1), 0));
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token")
+                .param("size", "1"))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void search_returns200_whenSizeIsOneHundredBoundary() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionService.search(isNull(), isNull(), isNull(), isNull(), isNull(), eq(PageRequest.of(0, 100))))
+            .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 100), 0));
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token")
+                .param("size", "100"))
+            .andExpect(status().isOk());
     }
 
     @Test
@@ -682,5 +849,11 @@ class QuestionControllerTest {
         when(jwtTokenProvider.isValid("access-token")).thenReturn(true);
         when(jwtTokenProvider.getMemberId("access-token")).thenReturn(1L);
         when(jwtTokenProvider.getMemberType("access-token")).thenReturn(MemberType.ADMIN);
+    }
+
+    private void authenticateAsStudent() {
+        when(jwtTokenProvider.isValid("access-token")).thenReturn(true);
+        when(jwtTokenProvider.getMemberId("access-token")).thenReturn(2L);
+        when(jwtTokenProvider.getMemberType("access-token")).thenReturn(MemberType.STUDENT);
     }
 }
