@@ -6,7 +6,6 @@ import com.ewha_eng.grmr.question.domain.QuestionDraft;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import com.ewha_eng.grmr.question.domain.QuestionRepository;
-import com.ewha_eng.grmr.question.domain.QuestionSpecifications;
 import com.ewha_eng.grmr.question.domain.QuestionStatus;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import java.util.List;
@@ -64,8 +63,7 @@ public class QuestionService {
     @Transactional(readOnly = true)
     public Page<Question> search(String category, QuestionType type, QuestionLevel level, QuestionStatus status,
         String keyword, Pageable pageable) {
-        return questionRepository.findAll(
-            QuestionSpecifications.search(category, type, level, status, keyword), pageable);
+        return questionRepository.search(category, type, level, status, keyword, pageable);
     }
 
     @Transactional
