@@ -20,10 +20,13 @@ import com.ewha_eng.grmr.global.security.JsonAccessDeniedHandler;
 import com.ewha_eng.grmr.global.security.JsonAuthenticationEntryPoint;
 import com.ewha_eng.grmr.global.security.SecurityConfig;
 import com.ewha_eng.grmr.member.domain.MemberType;
+import com.ewha_eng.grmr.question.application.QuestionGenerationService;
 import com.ewha_eng.grmr.question.application.QuestionService;
+import com.ewha_eng.grmr.question.domain.GptGenerationFailedException;
 import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
 import com.ewha_eng.grmr.question.domain.InvalidStatusTransitionException;
 import com.ewha_eng.grmr.question.domain.Question;
+import com.ewha_eng.grmr.question.domain.QuestionDraft;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import com.ewha_eng.grmr.question.domain.QuestionType;
@@ -58,6 +61,9 @@ class QuestionControllerTest {
 
     @MockitoBean
     private QuestionService questionService;
+
+    @MockitoBean
+    private QuestionGenerationService questionGenerationService;
 
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
@@ -215,6 +221,102 @@ class QuestionControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void generate_returns200_withDrafts_whenPayloadIsValid() throws Exception {
+        authenticateAsAdmin();
+
+        QuestionDraft draft = new QuestionDraft(
+            "현재완료",
+            QuestionType.MULTIPLE_CHOICE,
+            QuestionLevel.INTERMEDIATE,
+            "She has studied English _____ three years.",
+            List.of("for", "since", "during", "from"),
+            "for",
+            "기간을 나타낼 때 for를 사용합니다."
+        );
+
+        when(questionGenerationService.generate(eq("현재완료"), eq(QuestionType.MULTIPLE_CHOICE),
+            eq(QuestionLevel.INTERMEDIATE), eq(3), eq("쉬운 어휘를 사용해 주세요.")))
+            .thenReturn(List.of(draft));
+
+        QuestionGenerateRequest request = new QuestionGenerateRequest(
+            "현재완료", "보통", "객관식", 3, "쉬운 어휘를 사용해 주세요.");
+
+        mockMvc.perform(post("/api/questions/generate")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.drafts[0].category").value("현재완료"))
+            .andExpect(jsonPath("$.drafts[0].type").value("객관식"))
+            .andExpect(jsonPath("$.drafts[0].level").value("보통"))
+            .andExpect(jsonPath("$.drafts[0].answer").value("for"))
+            .andExpect(jsonPath("$.drafts[0].id").doesNotExist())
+            .andExpect(jsonPath("$.drafts[0].status").doesNotExist())
+            .andExpect(jsonPath("$.drafts[0].createdAt").doesNotExist());
+    }
+
+    @Test
+    void generate_returns400_withInvalidQuestionCode_whenTypeIsUnknown() throws Exception {
+        authenticateAsAdmin();
+
+        QuestionGenerateRequest request = new QuestionGenerateRequest(
+            "현재완료", "보통", "알 수 없음", 3, null);
+
+        mockMvc.perform(post("/api/questions/generate")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+    }
+
+    @Test
+    void generate_returns400_withInvalidQuestionCode_whenCountIsOutOfRange() throws Exception {
+        authenticateAsAdmin();
+
+        QuestionGenerateRequest request = new QuestionGenerateRequest(
+            "현재완료", "보통", "객관식", 11, null);
+
+        mockMvc.perform(post("/api/questions/generate")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+    }
+
+    @Test
+    void generate_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
+        QuestionGenerateRequest request = new QuestionGenerateRequest(
+            "현재완료", "보통", "객관식", 3, null);
+
+        mockMvc.perform(post("/api/questions/generate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void generate_returns502_withGptGenerationFailedCode_whenGenerationClientFails() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionGenerationService.generate(eq("현재완료"), eq(QuestionType.MULTIPLE_CHOICE),
+            eq(QuestionLevel.INTERMEDIATE), eq(3), isNull()))
+            .thenThrow(new GptGenerationFailedException("문제 생성에 실패했습니다. 다시 시도해주세요."));
+
+        QuestionGenerateRequest request = new QuestionGenerateRequest(
+            "현재완료", "보통", "객관식", 3, null);
+
+        mockMvc.perform(post("/api/questions/generate")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadGateway())
+            .andExpect(jsonPath("$.code").value("GPT_GENERATION_FAILED"))
+            .andExpect(jsonPath("$.message").value("문제 생성에 실패했습니다. 다시 시도해주세요."));
     }
 
     @Test

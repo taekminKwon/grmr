@@ -2,6 +2,7 @@ package com.ewha_eng.grmr.global.exception;
 
 import com.ewha_eng.grmr.auth.application.InvalidCredentialsException;
 import com.ewha_eng.grmr.auth.application.InvalidRefreshTokenException;
+import com.ewha_eng.grmr.question.domain.GptGenerationFailedException;
 import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
 import com.ewha_eng.grmr.question.domain.InvalidStatusTransitionException;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
@@ -41,5 +42,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInvalidStatusTransition(InvalidStatusTransitionException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(new ErrorResponse("INVALID_STATUS_TRANSITION", e.getMessage()));
+    }
+
+    @ExceptionHandler(GptGenerationFailedException.class)
+    public ResponseEntity<ErrorResponse> handleGptGenerationFailed(GptGenerationFailedException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+            .body(new ErrorResponse("GPT_GENERATION_FAILED", e.getMessage()));
     }
 }

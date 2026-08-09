@@ -1,11 +1,14 @@
 package com.ewha_eng.grmr.question.presentation;
 
+import com.ewha_eng.grmr.question.application.QuestionGenerationService;
 import com.ewha_eng.grmr.question.application.QuestionService;
 import com.ewha_eng.grmr.question.domain.Question;
+import com.ewha_eng.grmr.question.domain.QuestionDraft;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionStatus;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import java.net.URI;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class QuestionController {
 
     private final QuestionService questionService;
+    private final QuestionGenerationService questionGenerationService;
 
     @GetMapping
     public ResponseEntity<PageResponse<QuestionListItemResponse>> search(
@@ -65,6 +69,19 @@ public class QuestionController {
         return ResponseEntity
             .created(URI.create("/api/questions/" + question.getId()))
             .body(QuestionResponse.from(question));
+    }
+
+    @PostMapping("/generate")
+    public ResponseEntity<QuestionGenerateResponse> generate(@RequestBody QuestionGenerateRequest request) {
+        List<QuestionDraft> drafts = questionGenerationService.generate(
+            request.toCategory(),
+            request.toQuestionType(),
+            request.toQuestionLevel(),
+            request.toCount(),
+            request.prompt()
+        );
+
+        return ResponseEntity.ok(QuestionGenerateResponse.from(drafts));
     }
 
     @GetMapping("/{id}")
