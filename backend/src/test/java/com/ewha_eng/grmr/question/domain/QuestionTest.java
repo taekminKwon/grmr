@@ -87,7 +87,7 @@ class QuestionTest {
         Question question = fillInBlankQuestion();
 
         assertThatThrownBy(question::deactivate)
-            .isInstanceOf(IllegalStateException.class);
+            .isInstanceOf(InvalidStatusTransitionException.class);
     }
 
     @Test

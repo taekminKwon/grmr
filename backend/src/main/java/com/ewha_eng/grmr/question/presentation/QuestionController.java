@@ -89,4 +89,12 @@ public class QuestionController {
 
         return ResponseEntity.ok(QuestionResponse.from(question));
     }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<QuestionStatusResponse> changeStatus(
+        @PathVariable Long id, @RequestBody QuestionStatusChangeRequest request) {
+        Question question = questionService.changeStatus(id, request.status());
+
+        return ResponseEntity.ok(QuestionStatusResponse.from(question));
+    }
 }

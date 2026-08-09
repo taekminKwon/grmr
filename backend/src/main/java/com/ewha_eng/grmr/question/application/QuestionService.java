@@ -1,5 +1,6 @@
 package com.ewha_eng.grmr.question.application;
 
+import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
 import com.ewha_eng.grmr.question.domain.Question;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
@@ -56,5 +57,24 @@ public class QuestionService {
         String keyword, Pageable pageable) {
         return questionRepository.findAll(
             QuestionSpecifications.search(category, type, level, status, keyword), pageable);
+    }
+
+    @Transactional
+    public Question changeStatus(Long id, String status) {
+        Question question = questionRepository.findById(id)
+            .orElseThrow(() -> new QuestionNotFoundException("문제를 찾을 수 없습니다."));
+
+        QuestionStatus targetStatus = QuestionStatus.fromLabel(status);
+        if (targetStatus == null) {
+            throw new InvalidQuestionException("상태 값은 필수입니다.");
+        }
+
+        switch (targetStatus) {
+            case ACTIVE -> question.activate();
+            case INACTIVE -> question.deactivate();
+            default -> throw new InvalidQuestionException("알 수 없는 상태입니다: " + status);
+        }
+
+        return question;
     }
 }

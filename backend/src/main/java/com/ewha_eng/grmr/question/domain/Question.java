@@ -111,7 +111,7 @@ public class Question {
 
     public void deactivate() {
         if (this.status == QuestionStatus.DRAFT) {
-            throw new IllegalStateException("초안 상태에서는 사용 중지로 변경할 수 없습니다.");
+            throw new InvalidStatusTransitionException("초안 상태에서는 사용 중지로 변경할 수 없습니다.");
         }
         this.status = QuestionStatus.INACTIVE;
     }

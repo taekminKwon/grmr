@@ -22,6 +22,7 @@ import com.ewha_eng.grmr.global.security.SecurityConfig;
 import com.ewha_eng.grmr.member.domain.MemberType;
 import com.ewha_eng.grmr.question.application.QuestionService;
 import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
+import com.ewha_eng.grmr.question.domain.InvalidStatusTransitionException;
 import com.ewha_eng.grmr.question.domain.Question;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
@@ -335,6 +336,98 @@ class QuestionControllerTest {
             null, null, null, "수정된 본문", null, null, null);
 
         mockMvc.perform(patch("/api/questions/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void changeStatus_returns200_withUpdatedStatus_whenTransitionIsValid() throws Exception {
+        authenticateAsAdmin();
+
+        Question question = Question.builder()
+            .category("현재완료")
+            .type(QuestionType.MULTIPLE_CHOICE)
+            .level(QuestionLevel.INTERMEDIATE)
+            .text("He has lived here _____ 2010.")
+            .choices(List.of("for", "since", "during", "from"))
+            .answer("since")
+            .explanation("해설")
+            .build();
+        question.activate();
+        question.deactivate();
+        ReflectionTestUtils.setField(question, "id", 1024L);
+
+        when(questionService.changeStatus(1024L, "사용 중지")).thenReturn(question);
+
+        QuestionStatusChangeRequest request = new QuestionStatusChangeRequest("사용 중지");
+
+        mockMvc.perform(patch("/api/questions/1024/status")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(1024))
+            .andExpect(jsonPath("$.status").value("사용 중지"));
+    }
+
+    @Test
+    void changeStatus_returns404_withQuestionNotFoundCode_whenQuestionDoesNotExist() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionService.changeStatus(999L, "사용 중"))
+            .thenThrow(new QuestionNotFoundException("문제를 찾을 수 없습니다."));
+
+        QuestionStatusChangeRequest request = new QuestionStatusChangeRequest("사용 중");
+
+        mockMvc.perform(patch("/api/questions/999/status")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("QUESTION_NOT_FOUND"));
+    }
+
+    @Test
+    void changeStatus_returns409_withInvalidStatusTransitionCode_whenDraftChangesToInactive() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionService.changeStatus(1L, "사용 중지"))
+            .thenThrow(new InvalidStatusTransitionException("초안 상태에서는 사용 중지로 변경할 수 없습니다."));
+
+        QuestionStatusChangeRequest request = new QuestionStatusChangeRequest("사용 중지");
+
+        mockMvc.perform(patch("/api/questions/1/status")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"))
+            .andExpect(jsonPath("$.message").value("초안 상태에서는 사용 중지로 변경할 수 없습니다."));
+    }
+
+    @Test
+    void changeStatus_returns400_withInvalidQuestionCode_whenStatusIsUnknown() throws Exception {
+        authenticateAsAdmin();
+
+        when(questionService.changeStatus(1L, "알 수 없음"))
+            .thenThrow(new InvalidQuestionException("알 수 없는 상태입니다: 알 수 없음"));
+
+        QuestionStatusChangeRequest request = new QuestionStatusChangeRequest("알 수 없음");
+
+        mockMvc.perform(patch("/api/questions/1/status")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_QUESTION"));
+    }
+
+    @Test
+    void changeStatus_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
+        QuestionStatusChangeRequest request = new QuestionStatusChangeRequest("사용 중");
+
+        mockMvc.perform(patch("/api/questions/1/status")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isUnauthorized());

@@ -3,6 +3,7 @@ package com.ewha_eng.grmr.global.exception;
 import com.ewha_eng.grmr.auth.application.InvalidCredentialsException;
 import com.ewha_eng.grmr.auth.application.InvalidRefreshTokenException;
 import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
+import com.ewha_eng.grmr.question.domain.InvalidStatusTransitionException;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,5 +35,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleQuestionNotFound(QuestionNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
             .body(new ErrorResponse("QUESTION_NOT_FOUND", e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidStatusTransitionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStatusTransition(InvalidStatusTransitionException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ErrorResponse("INVALID_STATUS_TRANSITION", e.getMessage()));
     }
 }
