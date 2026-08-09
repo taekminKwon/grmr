@@ -4,9 +4,13 @@ import com.ewha_eng.grmr.question.domain.Question;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import com.ewha_eng.grmr.question.domain.QuestionRepository;
+import com.ewha_eng.grmr.question.domain.QuestionSpecifications;
+import com.ewha_eng.grmr.question.domain.QuestionStatus;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,5 +40,12 @@ public class QuestionService {
     public Question getById(Long id) {
         return questionRepository.findById(id)
             .orElseThrow(() -> new QuestionNotFoundException("문제를 찾을 수 없습니다."));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Question> search(String category, QuestionType type, QuestionLevel level, QuestionStatus status,
+        String keyword, Pageable pageable) {
+        return questionRepository.findAll(
+            QuestionSpecifications.search(category, type, level, status, keyword), pageable);
     }
 }

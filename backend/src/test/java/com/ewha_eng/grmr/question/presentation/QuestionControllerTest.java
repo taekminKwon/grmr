@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -29,6 +30,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -56,6 +59,41 @@ class QuestionControllerTest {
 
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
+
+    @Test
+    void search_returns200_withPagedContent_whenQueryHasNoFilters() throws Exception {
+        authenticateAsAdmin();
+
+        Question question = Question.builder()
+            .category("현재완료")
+            .type(QuestionType.MULTIPLE_CHOICE)
+            .level(QuestionLevel.INTERMEDIATE)
+            .text("He has lived here _____ 2010.")
+            .choices(List.of("for", "since", "during", "from"))
+            .answer("since")
+            .explanation("설명")
+            .build();
+        ReflectionTestUtils.setField(question, "id", 1L);
+
+        when(questionService.search(isNull(), isNull(), isNull(), isNull(), isNull(), eq(PageRequest.of(0, 20))))
+            .thenReturn(new PageImpl<>(List.of(question), PageRequest.of(0, 20), 1));
+
+        mockMvc.perform(get("/api/questions")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].id").value(1))
+            .andExpect(jsonPath("$.content[0].status").value("초안"))
+            .andExpect(jsonPath("$.page").value(0))
+            .andExpect(jsonPath("$.size").value(20))
+            .andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.totalPages").value(1));
+    }
+
+    @Test
+    void search_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
+        mockMvc.perform(get("/api/questions"))
+            .andExpect(status().isUnauthorized());
+    }
 
     @Test
     void create_returns201_withLocationAndDraftStatus_whenPayloadIsValid() throws Exception {
