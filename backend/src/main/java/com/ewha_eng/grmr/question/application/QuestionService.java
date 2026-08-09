@@ -79,7 +79,7 @@ public class QuestionService {
         switch (targetStatus) {
             case ACTIVE -> question.activate();
             case INACTIVE -> question.deactivate();
-            default -> throw new InvalidQuestionException("알 수 없는 상태입니다: " + status);
+            case DRAFT -> throw new InvalidQuestionException("초안 상태로는 변경할 수 없습니다: " + status);
         }
 
         return question;
