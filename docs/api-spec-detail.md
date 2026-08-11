@@ -19,6 +19,8 @@
 
 ## 인증 (Auth)
 
+**세션 정책**: 회원(`memberId`)당 refresh token은 Redis에 항상 1개만 저장되므로, 동시에 유효한 세션도 회원당 1개로 제한됩니다. 이미 로그인한 상태에서 다른 기기/브라우저로 다시 로그인하면 기존 refresh token이 새 토큰으로 교체(대체)되며, 교체되는 즉시 이전 refresh token은 무효화되어 이전 세션은 재발급/로그아웃 요청 시 `401 Unauthorized`(`INVALID_REFRESH_TOKEN`)를 받습니다.
+
 ### POST `/api/auth/login` — 로그인
 
 **Request Body**
@@ -105,6 +107,8 @@
 ---
 
 ## 문제 (Question)
+
+**Phase 1(MVP) 범위**: 문제 유형(`type`)은 객관식(`MULTIPLE_CHOICE`, 표시 라벨 "객관식")만 지원합니다. 이 문서에 등장하는 `빈칸`/`오류 찾기`는 향후 단계에서 지원 예정인 미래 범위이며, Phase 1의 요청/응답에서는 사용하지 않습니다.
 
 ### GET `/api/questions` — 문제 목록 조회
 
@@ -486,15 +490,17 @@
 
 ## 학습 이력 (StudyRecord)
 
+`type`의 API 쿼리 값과 응답 값은 항상 `ASSIGNMENT`(과제) 또는 `PRACTICE`(자유 학습)입니다. "과제"/"자유 학습"은 화면에 표시하는 한글 라벨일 뿐, API 쿼리·응답 값으로는 사용하지 않습니다.
+
 ### GET `/api/study-records` — 학습 이력 조회 (관리자용)
 
-**Query Parameters**: `studentId`, `period`(`7d`/`30d`), `type`(`과제`/`자유 학습`), `page`, `size`
+**Query Parameters**: `studentId`, `period`(`7d`/`30d`), `type`(`ASSIGNMENT`/`PRACTICE`), `page`, `size`
 
 **Response** `200 OK`
 ```json
 {
   "content": [
-    { "studentId": 501, "studentName": "김민수", "date": "2026-08-01", "type": "과제", "questionCount": 20, "accuracy": 80, "durationMinutes": 32 }
+    { "studentId": 501, "studentName": "김민수", "date": "2026-08-01", "type": "ASSIGNMENT", "questionCount": 20, "accuracy": 80, "durationMinutes": 32 }
   ],
   "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
 }
@@ -502,7 +508,7 @@
 
 ### GET `/api/me/history` — 내 학습 이력 조회 (학생 본인)
 
-**Query Parameters**: `period`(`7d`/`30d`), `type`(`과제`/`자유 학습`)
+**Query Parameters**: `period`(`7d`/`30d`), `type`(`ASSIGNMENT`/`PRACTICE`)
 
 **Response** `200 OK`
 ```json
@@ -518,7 +524,7 @@
     { "category": "수동태", "accuracy": 65 }
   ],
   "records": [
-    { "date": "2026-08-01", "type": "과제", "questionCount": 20, "accuracy": 80 }
+    { "date": "2026-08-01", "type": "ASSIGNMENT", "questionCount": 20, "accuracy": 80 }
   ]
 }
 ```

@@ -41,7 +41,7 @@
 }
 ```
 
-refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로그인/재발급 시 갱신되고 로그아웃 시 삭제됩니다. 상세는 [docs/api-spec-detail.md](api-spec-detail.md#인증-auth) 참고.
+refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로그인/재발급 시 갱신되고 로그아웃 시 삭제됩니다. 회원당 refresh token은 항상 1개만 유지되므로 동시 활성 세션도 1개로 제한되며, 다른 곳에서 새로 로그인하면 기존 refresh token이 새 토큰으로 교체되어 이전 세션은 즉시 무효화됩니다. 상세는 [docs/api-spec-detail.md](api-spec-detail.md#인증-auth) 참고.
 
 ## 문제 (Question)
 
@@ -52,6 +52,8 @@ refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로�
 | POST | `/api/questions` | 문제 직접 등록 (초안으로 생성) |
 | PATCH | `/api/questions/{id}` | 문제 내용 수정 |
 | PATCH | `/api/questions/{id}/status` | 문제 상태 변경 (`사용 중` ↔ `사용 중지`) |
+
+**Phase 1(MVP) 범위**: 문제 유형(`type`)은 객관식(`MULTIPLE_CHOICE`, 표시 라벨 "객관식")만 지원합니다. `빈칸`/`오류 찾기`는 향후 단계에서 지원 예정인 미래 범위로, Phase 1에서는 사용하지 않습니다.
 
 **POST `/api/questions` 요청 예시**
 ```json
@@ -126,9 +128,11 @@ refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로�
 | Method | Path | 설명 |
 | --- | --- | --- |
 | GET | `/api/study-records` | 학습 이력 조회 (관리자용). 쿼리: `studentId`, `period`(`7d`/`30d`), `type`(`ASSIGNMENT`/`PRACTICE`), `page`, `size` |
-| GET | `/api/me/history` | 내 학습 이력 조회 (학생 본인). 쿼리: `period`, `type` |
+| GET | `/api/me/history` | 내 학습 이력 조회 (학생 본인). 쿼리: `period`, `type`(`ASSIGNMENT`/`PRACTICE`) |
 
 **응답 필드**: `studentId`, `studentName`, `date`, `type`, `questionCount`, `accuracy`, `durationMinutes`
+
+`type`의 API 쿼리·응답 값은 항상 `ASSIGNMENT`(과제) 또는 `PRACTICE`(자유 학습)입니다. "과제"/"자유 학습"은 화면 표시용 한글 라벨일 뿐 API 값으로는 사용하지 않습니다.
 
 ## 대시보드
 
