@@ -85,9 +85,9 @@ refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로�
   "prompt": "중학교 1학년 수준의 쉬운 어휘를 사용해 주세요."
 }
 ```
-응답은 저장 전 초안 문제 배열(`Question`과 동일한 필드, `id` 없음)입니다.
+응답은 `{ "drafts": [...] }` 형태이며, `drafts` 배열의 각 항목은 `Question`과 동일한 필드(`id` 없음)입니다.
 
-**POST `/api/questions/generate/save` 요청**: 위 응답 배열을 검수 후(필요시 수정) 그대로 전달 → 각 항목이 `상태: 초안`으로 저장됩니다.
+**POST `/api/questions/generate/save` 요청**: 위 응답을 검수 후(필요시 수정) `{ "drafts": [...] }` 형태 그대로 전달 → 각 항목이 `상태: 초안`으로 저장됩니다.
 
 ## 과제 (Assignment)
 
