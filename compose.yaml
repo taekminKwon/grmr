@@ -44,6 +44,10 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET}
+      SPRING_PROFILES_ACTIVE: local
+      LOCAL_ADMIN_LOGIN_ID: ${LOCAL_ADMIN_LOGIN_ID}
+      LOCAL_ADMIN_PASSWORD: ${LOCAL_ADMIN_PASSWORD}
+      LOCAL_ADMIN_NAME: ${LOCAL_ADMIN_NAME}
     ports:
       - "${BACKEND_PORT}:8080"
     depends_on:
