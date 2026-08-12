@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { QuestionApiError, questionApi } from '../api/questionApi'
 import {
   PHASE_1_QUESTION_TYPES,
@@ -39,14 +39,26 @@ type FetchResult =
 function QuestionListPage() {
   const { session, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [formState, setFormState] = useState<FilterFormState>(EMPTY_FILTERS)
   const [appliedFilters, setAppliedFilters] = useState<FilterFormState>(EMPTY_FILTERS)
   const [page, setPage] = useState(0)
   const [retryToken, setRetryToken] = useState(0)
   const [result, setResult] = useState<FetchResult | null>(null)
+  const [showCreatedNotice, setShowCreatedNotice] = useState(
+    Boolean((location.state as { questionCreated?: boolean } | null)?.questionCreated),
+  )
 
   const accessToken = session?.accessToken
+  const isAdmin = session?.user.role === 'ADMIN'
+
+  useEffect(() => {
+    if ((location.state as { questionCreated?: boolean } | null)?.questionCreated) {
+      // Clear the navigation state so the notice doesn't reappear on refresh/back-nav.
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location, navigate])
 
   useEffect(() => {
     if (!accessToken) {
@@ -132,9 +144,30 @@ function QuestionListPage() {
     <AdminLayout active="questions">
       <div className="question-list-page">
         <header className="question-list-header">
-          <h1>문제 관리</h1>
-          <p className="question-list-subtitle">등록된 문제를 조건별로 조회합니다.</p>
+          <div>
+            <h1>문제 관리</h1>
+            <p className="question-list-subtitle">등록된 문제를 조건별로 조회합니다.</p>
+          </div>
+          {isAdmin && (
+            <Button type="button" onClick={() => navigate('/admin/questions/new')}>
+              문제 추가
+            </Button>
+          )}
         </header>
+
+        {showCreatedNotice && (
+          <div className="question-list-notice" role="status">
+            <p>문제가 등록되었습니다.</p>
+            <button
+              type="button"
+              className="question-list-notice-dismiss"
+              onClick={() => setShowCreatedNotice(false)}
+              aria-label="알림 닫기"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         <form className="question-filter-form" onSubmit={handleFilterSubmit} aria-label="문제 검색 필터">
           <div className="question-filter-field">

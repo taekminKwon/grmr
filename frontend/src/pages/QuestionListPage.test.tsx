@@ -24,12 +24,22 @@ function seedAdminSession() {
   )
 }
 
-function renderQuestionListPage() {
+function seedStudentSession() {
+  sessionStorage.setItem(
+    'grmr.auth.session',
+    JSON.stringify({ accessToken: 'access-token-abc', user: { name: '김학생', role: 'STUDENT' } }),
+  )
+}
+
+function renderQuestionListPage(initialEntries: (string | { pathname: string; state?: unknown })[] = [
+  '/admin/questions',
+]) {
   render(
     <AuthProvider>
-      <MemoryRouter initialEntries={['/admin/questions']}>
+      <MemoryRouter initialEntries={initialEntries}>
         <Routes>
           <Route path="/admin/questions" element={<QuestionListPage />} />
+          <Route path="/admin/questions/new" element={<div>Question create landing</div>} />
           <Route path="/login" element={<div>Login landing</div>} />
         </Routes>
       </MemoryRouter>
@@ -241,5 +251,50 @@ describe('QuestionListPage', () => {
     await waitFor(() => expect(screen.getByText('Second page question.')).toBeDefined())
     expect((screen.getByRole('button', { name: '이전' }) as HTMLButtonElement).disabled).toBe(false)
     expect((screen.getByRole('button', { name: '다음' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('shows the 문제 추가 entry point for an ADMIN session and navigates to the create route', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, pageResponse([]))))
+    seedAdminSession()
+
+    renderQuestionListPage()
+    await waitFor(() => expect(screen.getByText('조건에 맞는 문제가 없습니다.')).toBeDefined())
+
+    const addButton = screen.getByRole('button', { name: '문제 추가' })
+    fireEvent.click(addButton)
+
+    expect(screen.getByText('Question create landing')).toBeDefined()
+  })
+
+  it('hides the 문제 추가 entry point for a STUDENT session', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, pageResponse([]))))
+    seedStudentSession()
+
+    renderQuestionListPage()
+    await waitFor(() => expect(screen.getByText('조건에 맞는 문제가 없습니다.')).toBeDefined())
+
+    expect(screen.queryByRole('button', { name: '문제 추가' })).toBeNull()
+  })
+
+  it('shows a success notice after navigating back from a successful question creation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, pageResponse([]))))
+    seedAdminSession()
+
+    renderQuestionListPage([{ pathname: '/admin/questions', state: { questionCreated: true } }])
+
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('문제가 등록되었습니다.'))
+
+    fireEvent.click(screen.getByRole('button', { name: '알림 닫기' }))
+    expect(screen.queryByText('문제가 등록되었습니다.')).toBeNull()
+  })
+
+  it('does not show the success notice on a plain visit to the list', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, pageResponse([]))))
+    seedAdminSession()
+
+    renderQuestionListPage()
+    await waitFor(() => expect(screen.getByText('조건에 맞는 문제가 없습니다.')).toBeDefined())
+
+    expect(screen.queryByText('문제가 등록되었습니다.')).toBeNull()
   })
 })
