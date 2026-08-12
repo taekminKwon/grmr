@@ -200,14 +200,14 @@ public class Question {
     }
 
     public void activate() {
-        if (this.status == QuestionStatus.DISABLED) {
-            throw new IllegalStateException("사용 중지된 문제는 바로 활성화할 수 없습니다.");
-        }
-        this.status = QuestionStatus.IN_USE;
+        this.status = QuestionStatus.ACTIVE;
     }
 
-    public void disable() {
-        this.status = QuestionStatus.DISABLED;
+    public void deactivate() {
+        if (this.status == QuestionStatus.DRAFT) {
+            throw new InvalidStatusTransitionException("초안 상태에서는 사용 중지로 변경할 수 없습니다.");
+        }
+        this.status = QuestionStatus.INACTIVE;
     }
 
     public boolean isCorrect(String submitted) {

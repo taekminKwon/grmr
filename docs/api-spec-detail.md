@@ -110,6 +110,20 @@
 
 **Phase 1(MVP) 범위**: 문제 유형(`type`)은 객관식(`MULTIPLE_CHOICE`, 표시 라벨 "객관식")만 지원합니다. 이 문서에 등장하는 `빈칸`/`오류 찾기`는 향후 단계에서 지원 예정인 미래 범위이며, Phase 1의 요청/응답에서는 사용하지 않습니다.
 
+### 상태(`status`) 전이 매트릭스
+
+문제 상태는 `초안`/`사용 중`/`사용 중지` 세 가지이며, `POST /api/questions`로 생성된 문제는 항상 `초안`으로 시작합니다. 상태는 [`PATCH /api/questions/{id}/status`](#patch-apiquestionsidstatus--문제-상태-변경)로만 변경하며, 아래 매트릭스가 유일한 기준입니다.
+
+| 현재 상태 → 목표 상태 | `초안` | `사용 중` | `사용 중지` |
+| --- | --- | --- | --- |
+| **`초안`** | 요청 대상 아님(생성 시에만 부여) | 허용 | **금지** |
+| **`사용 중`** | **금지** | 허용(멱등, no-op) | 허용 |
+| **`사용 중지`** | **금지** | 허용 | 허용(멱등, no-op) |
+
+- **`초안` → `사용 중지`**: 금지. `409 Conflict` `{ "code": "INVALID_STATUS_TRANSITION", "message": "초안 상태에서는 사용 중지로 변경할 수 없습니다." }`
+- **모든 상태 → `초안`**: 금지. 현재 상태와 무관하게 `400 Bad Request` `{ "code": "INVALID_QUESTION", "message": "초안 상태로는 변경할 수 없습니다: {요청한 status}" }`. 초안은 문제를 새로 등록할 때만 부여되는 상태이며, 상태 변경 API로는 절대 되돌릴 수 없습니다.
+- **`사용 중` ↔ `사용 중지`**: 양방향 모두 허용. 이미 목표 상태와 같은 상태로 요청해도(`사용 중`→`사용 중`, `사용 중지`→`사용 중지`) 에러 없이 멱등하게 처리됩니다.
+
 ### GET `/api/questions` — 문제 목록 조회
 
 **Query Parameters**
@@ -257,11 +271,13 @@
 
 **Path Parameters**: `id` (long)
 
+전이 가능 여부는 [상태(`status`) 전이 매트릭스](#상태status-전이-매트릭스)를 따릅니다.
+
 **Request Body**
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `status` | string | ✓ | `사용 중` 또는 `사용 중지` |
+| `status` | string | ✓ | `사용 중` 또는 `사용 중지` (`초안`은 허용되지 않는 목표 값) |
 
 ```json
 { "status": "사용 중지" }
@@ -272,7 +288,10 @@
 { "id": 1024, "status": "사용 중지" }
 ```
 
-**Error**: `404 Not Found`(`QUESTION_NOT_FOUND`), `409 Conflict` `{ "code": "INVALID_STATUS_TRANSITION", "message": "초안 상태에서는 사용 중지로 변경할 수 없습니다." }`
+**Error**:
+- `404 Not Found` `{ "code": "QUESTION_NOT_FOUND", "message": "문제를 찾을 수 없습니다." }`
+- `409 Conflict` `{ "code": "INVALID_STATUS_TRANSITION", "message": "초안 상태에서는 사용 중지로 변경할 수 없습니다." }` — 현재 상태가 `초안`인데 `사용 중지`를 요청한 경우
+- `400 Bad Request` `{ "code": "INVALID_QUESTION", "message": "초안 상태로는 변경할 수 없습니다: {status}" }` — `status`로 `초안`을 요청한 경우(현재 상태 무관)
 
 ---
 
@@ -648,6 +667,48 @@
   ]
 }
 ```
+
+자유 학습 문제 조회 대상은 `상태: 사용 중`인 문제로 한정합니다(`초안`/`사용 중지`는 학생에게 노출되지 않습니다).
+
+### POST `/api/me/practice/answers` — 자유 학습 답안 제출/임시 저장
+
+`POST /api/me/assignments/{assignmentId}/answers`와 동일한 요청/응답 형식을 사용하되, 과제에 속하지 않는 자유 학습 문제(`GET /api/me/practice/questions`로 조회한 문제)를 대상으로 합니다. `assignmentId`는 없습니다.
+
+**Request Body**
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `questionId` | long | ✓ | 대상 문제 ID |
+| `answer` | string | ✓ | 제출한 답 |
+| `final` | boolean | ✓ | `false`: 임시 저장, `true`: 채점 |
+
+```json
+{ "questionId": 1021, "answer": "were", "final": true }
+```
+
+**Response** `200 OK`
+
+`final: false`
+```json
+{ "saved": true }
+```
+
+`final: true`
+```json
+{
+  "questionId": 1021,
+  "correct": true,
+  "answer": "were",
+  "explanation": "가정법 과거에서는 주어의 인칭에 관계없이 be동사로 were를 씁니다."
+}
+```
+
+`correct`는 제출한 `answer`가 문제의 정답과 일치하는지 여부이며, `answer`/`explanation`은 (제출 값이 아닌) 문제의 정답/해설입니다. 이 필드 의미는 과제 답안 제출 응답과 동일합니다.
+
+**Error**:
+- `400 Bad Request` `{ "code": "INVALID_REQUEST", "message": "..." }` — `questionId`/`answer`/`final` 누락 또는 형식 오류
+- `404 Not Found` `{ "code": "QUESTION_NOT_FOUND", "message": "문제를 찾을 수 없습니다." }`
+- `409 Conflict` `{ "code": "QUESTION_NOT_IN_USE", "message": "사용 중인 문제만 풀 수 있습니다." }` — 대상 문제 상태가 `사용 중`이 아닌 경우(`초안`/`사용 중지`)
 
 ---
 
