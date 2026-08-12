@@ -9,6 +9,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ewha_eng.grmr.auth.domain.InvalidCredentialsException;
+import com.ewha_eng.grmr.auth.domain.InvalidRefreshTokenException;
+import com.ewha_eng.grmr.auth.domain.LoginResult;
+import com.ewha_eng.grmr.auth.domain.RefreshResult;
 import com.ewha_eng.grmr.auth.domain.RefreshTokenReader;
 import com.ewha_eng.grmr.auth.domain.RefreshTokenStore;
 import com.ewha_eng.grmr.auth.infrastructure.JwtTokenProvider;
@@ -25,7 +29,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
-class AuthServiceTest {
+class AuthServiceImplTest {
 
     @Mock
     private MemberReader memberReader;
@@ -42,11 +46,11 @@ class AuthServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
-    private AuthService authService;
+    private AuthServiceImpl authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(memberReader, refreshTokenReader, refreshTokenStore, jwtTokenProvider, passwordEncoder);
+        authService = new AuthServiceImpl(memberReader, refreshTokenReader, refreshTokenStore, jwtTokenProvider, passwordEncoder);
     }
 
     private Member adminMember() {

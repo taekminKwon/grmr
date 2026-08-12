@@ -1,4 +1,4 @@
-package com.ewha_eng.grmr.auth.application;
+package com.ewha_eng.grmr.auth.domain;
 
 public class InvalidCredentialsException extends RuntimeException {
 
