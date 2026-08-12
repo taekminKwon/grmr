@@ -1,7 +1,7 @@
 package com.ewha_eng.grmr.global.exception;
 
-import com.ewha_eng.grmr.auth.application.InvalidCredentialsException;
-import com.ewha_eng.grmr.auth.application.InvalidRefreshTokenException;
+import com.ewha_eng.grmr.auth.domain.InvalidCredentialsException;
+import com.ewha_eng.grmr.auth.domain.InvalidRefreshTokenException;
 import com.ewha_eng.grmr.question.domain.GptGenerationFailedException;
 import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
 import com.ewha_eng.grmr.question.domain.InvalidStatusTransitionException;

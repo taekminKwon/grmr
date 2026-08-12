@@ -1,5 +1,10 @@
 package com.ewha_eng.grmr.auth.application;
 
+import com.ewha_eng.grmr.auth.domain.AuthService;
+import com.ewha_eng.grmr.auth.domain.InvalidCredentialsException;
+import com.ewha_eng.grmr.auth.domain.InvalidRefreshTokenException;
+import com.ewha_eng.grmr.auth.domain.LoginResult;
+import com.ewha_eng.grmr.auth.domain.RefreshResult;
 import com.ewha_eng.grmr.auth.domain.RefreshTokenReader;
 import com.ewha_eng.grmr.auth.domain.RefreshTokenStore;
 import com.ewha_eng.grmr.auth.infrastructure.JwtTokenProvider;
@@ -12,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class AuthService {
+public class AuthServiceImpl implements AuthService {
 
     private final MemberReader memberReader;
     private final RefreshTokenReader refreshTokenReader;
@@ -20,6 +25,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
 
+    @Override
     @Transactional(readOnly = true)
     public LoginResult login(String loginId, String rawPassword) {
         Member member = memberReader.findByLoginId(loginId)
@@ -32,6 +38,7 @@ public class AuthService {
         return issueTokens(member);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public RefreshResult refresh(String refreshToken) {
         if (!jwtTokenProvider.isValid(refreshToken)) {
@@ -53,6 +60,7 @@ public class AuthService {
         return new RefreshResult(tokens.accessToken(), tokens.refreshToken(), tokens.expiresIn());
     }
 
+    @Override
     public void logout(String refreshToken) {
         if (!jwtTokenProvider.isValid(refreshToken)) {
             return;

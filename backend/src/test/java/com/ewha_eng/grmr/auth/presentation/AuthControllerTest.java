@@ -8,11 +8,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.ewha_eng.grmr.auth.application.AuthService;
-import com.ewha_eng.grmr.auth.application.InvalidCredentialsException;
-import com.ewha_eng.grmr.auth.application.InvalidRefreshTokenException;
-import com.ewha_eng.grmr.auth.application.LoginResult;
-import com.ewha_eng.grmr.auth.application.RefreshResult;
+import com.ewha_eng.grmr.auth.domain.AuthService;
+import com.ewha_eng.grmr.auth.domain.InvalidCredentialsException;
+import com.ewha_eng.grmr.auth.domain.InvalidRefreshTokenException;
+import com.ewha_eng.grmr.auth.domain.LoginResult;
+import com.ewha_eng.grmr.auth.domain.RefreshResult;
 import com.ewha_eng.grmr.auth.infrastructure.JwtAuthenticationFilter;
 import com.ewha_eng.grmr.auth.infrastructure.JwtTokenProvider;
 import com.ewha_eng.grmr.global.exception.GlobalExceptionHandler;

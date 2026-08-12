@@ -1,8 +1,8 @@
 package com.ewha_eng.grmr.auth.presentation;
 
-import com.ewha_eng.grmr.auth.application.AuthService;
-import com.ewha_eng.grmr.auth.application.LoginResult;
-import com.ewha_eng.grmr.auth.application.RefreshResult;
+import com.ewha_eng.grmr.auth.domain.AuthService;
+import com.ewha_eng.grmr.auth.domain.LoginResult;
+import com.ewha_eng.grmr.auth.domain.RefreshResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;

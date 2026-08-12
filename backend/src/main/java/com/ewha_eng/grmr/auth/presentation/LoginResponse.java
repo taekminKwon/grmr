@@ -1,6 +1,6 @@
 package com.ewha_eng.grmr.auth.presentation;
 
-import com.ewha_eng.grmr.auth.application.LoginResult;
+import com.ewha_eng.grmr.auth.domain.LoginResult;
 
 public record LoginResponse(
     String accessToken,

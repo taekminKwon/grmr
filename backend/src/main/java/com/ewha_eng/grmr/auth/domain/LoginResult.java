@@ -1,4 +1,4 @@
-package com.ewha_eng.grmr.auth.application;
+package com.ewha_eng.grmr.auth.domain;
 
 import com.ewha_eng.grmr.member.domain.MemberType;
 

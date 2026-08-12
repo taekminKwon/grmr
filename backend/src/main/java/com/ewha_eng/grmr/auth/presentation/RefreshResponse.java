@@ -1,6 +1,6 @@
 package com.ewha_eng.grmr.auth.presentation;
 
-import com.ewha_eng.grmr.auth.application.RefreshResult;
+import com.ewha_eng.grmr.auth.domain.RefreshResult;
 
 public record RefreshResponse(String accessToken, String refreshToken, long expiresIn) {
 
