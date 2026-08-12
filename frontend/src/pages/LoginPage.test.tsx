@@ -1,50 +1,158 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { AuthProvider } from '../auth/AuthContext'
 import LoginPage from './LoginPage'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  sessionStorage.clear()
+  vi.unstubAllGlobals()
+})
+
+function renderLoginPage() {
+  render(
+    <AuthProvider>
+      <MemoryRouter initialEntries={['/login']}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin" element={<div>Admin landing</div>} />
+        </Routes>
+      </MemoryRouter>
+    </AuthProvider>,
+  )
+}
+
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+async function fillAndSubmit(loginId: string, password: string) {
+  fireEvent.change(screen.getByLabelText('Login ID'), { target: { value: loginId } })
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: password } })
+  fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+}
+
+const adminResponse = {
+  accessToken: 'access-token',
+  refreshToken: 'refresh-token-secret',
+  tokenType: 'Bearer',
+  expiresIn: 3600,
+  role: 'ADMIN',
+  name: '권태민',
+}
 
 describe('LoginPage', () => {
-  it('renders an accessible heading and labeled form controls', () => {
-    render(<LoginPage />)
+  it('renders an accessible heading and labeled, controlled form controls', () => {
+    renderLoginPage()
 
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
 
-    const emailInput = screen.getByLabelText('Email') as HTMLInputElement
-    expect(emailInput.type).toBe('email')
-    expect(emailInput.autocomplete).toBe('email')
+    const loginIdInput = screen.getByLabelText('Login ID') as HTMLInputElement
+    expect(loginIdInput.autocomplete).toBe('username')
 
     const passwordInput = screen.getByLabelText('Password') as HTMLInputElement
     expect(passwordInput.type).toBe('password')
     expect(passwordInput.autocomplete).toBe('current-password')
 
+    fireEvent.change(loginIdInput, { target: { value: 'admin01' } })
+    expect(loginIdInput.value).toBe('admin01')
+
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeDefined()
   })
 
-  it('reserves an inline region for validation or server errors', () => {
-    render(<LoginPage />)
+  it('reserves an inline accessible region for server/network errors', () => {
+    renderLoginPage()
 
     const errorRegion = screen.getByRole('alert')
     expect(errorRegion).toBeDefined()
     expect(errorRegion.textContent).toBe('')
   })
 
-  it('only prevents default on submit, without navigating or sending a request', () => {
-    const fetchSpy = vi.fn()
+  it('submits loginId/password to POST /api/auth/login', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(jsonResponse(200, adminResponse))
     vi.stubGlobal('fetch', fetchSpy)
-    const initialHref = window.location.href
 
-    render(<LoginPage />)
+    renderLoginPage()
+    await fillAndSubmit('admin01', 'password123!')
 
-    const form = screen.getByRole('button', { name: 'Sign in' }).closest('form')
-    expect(form).not.toBeNull()
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1))
+    const [url, init] = fetchSpy.mock.calls[0]
+    expect(url).toBe('/api/auth/login')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual({ loginId: 'admin01', password: 'password123!' })
+  })
 
-    const wasNotCanceled = fireEvent.submit(form as HTMLFormElement)
+  it('shows a disabled/submitting state and prevents duplicate submits', async () => {
+    let resolveFetch: (value: Response) => void = () => {}
+    const fetchSpy = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve
+        }),
+    )
+    vi.stubGlobal('fetch', fetchSpy)
 
-    expect(wasNotCanceled).toBe(false)
-    expect(window.location.href).toBe(initialHref)
-    expect(fetchSpy).not.toHaveBeenCalled()
+    renderLoginPage()
+    fireEvent.change(screen.getByLabelText('Login ID'), { target: { value: 'admin01' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123!' } })
 
-    vi.unstubAllGlobals()
+    const submitButton = screen.getByRole('button', { name: /sign in/i })
+    fireEvent.click(submitButton)
+    fireEvent.click(submitButton)
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect((submitButton as HTMLButtonElement).disabled).toBe(true)
+
+    resolveFetch(jsonResponse(200, adminResponse))
+    await waitFor(() => expect(screen.getByText('Admin landing')).toBeDefined())
+  })
+
+  it('shows the backend message on invalid credentials and stays on the login page', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(401, {
+          code: 'INVALID_CREDENTIALS',
+          message: '아이디 또는 비밀번호가 올바르지 않습니다.',
+        }),
+      ),
+    )
+
+    renderLoginPage()
+    await fillAndSubmit('admin01', 'wrong-password')
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toBe('아이디 또는 비밀번호가 올바르지 않습니다.'),
+    )
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('shows a network error message when the request fails to reach the server', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    renderLoginPage()
+    await fillAndSubmit('admin01', 'password123!')
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).not.toBe(''))
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('navigates to /admin and stores only the access token and user on ADMIN success', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, adminResponse)))
+
+    renderLoginPage()
+    await fillAndSubmit('admin01', 'password123!')
+
+    await waitFor(() => expect(screen.getByText('Admin landing')).toBeDefined())
+
+    const stored = sessionStorage.getItem('grmr.auth.session')
+    expect(stored).not.toBeNull()
+    expect(stored).not.toContain('refresh-token-secret')
+    const parsed = JSON.parse(stored as string)
+    expect(parsed).toEqual({ accessToken: 'access-token', user: { name: '권태민', role: 'ADMIN' } })
   })
 })
