@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
 import LoginPage from '../pages/LoginPage'
+import QuestionListPage from '../pages/QuestionListPage'
 import ProtectedRoute from './ProtectedRoute'
 
 function AppRoutes() {
@@ -12,6 +13,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <AdminPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/questions"
+        element={
+          <ProtectedRoute>
+            <QuestionListPage />
           </ProtectedRoute>
         }
       />

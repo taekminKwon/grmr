@@ -47,16 +47,25 @@ describe('AdminPage', () => {
     expect(dashboardLink.getAttribute('aria-current')).toBe('page')
   })
 
+  it('links to the Question list as a functional, non-current navigation item', () => {
+    seedAdminSession()
+    renderAdminPage()
+
+    const questionsLink = screen.getByRole('link', { name: 'Questions' })
+    expect(questionsLink.getAttribute('href')).toBe('/admin/questions')
+    expect(questionsLink.getAttribute('aria-current')).toBeNull()
+  })
+
   it('lists the remaining navigation items as non-interactive and marked coming soon', () => {
     seedAdminSession()
     renderAdminPage()
 
-    for (const label of ['Questions', 'Assignments', 'Students', 'Study Records']) {
+    for (const label of ['Assignments', 'Students', 'Study Records']) {
       expect(screen.queryByRole('link', { name: label })).toBeNull()
       expect(screen.queryByRole('button', { name: label })).toBeNull()
       expect(screen.getByText(label)).toBeDefined()
     }
-    expect(screen.getAllByText('Coming soon')).toHaveLength(4)
+    expect(screen.getAllByText('Coming soon')).toHaveLength(3)
   })
 
   it('logs out, clears the session, and returns to /login', () => {

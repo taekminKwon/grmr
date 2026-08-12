@@ -1,13 +1,21 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../auth/AuthContext'
 import AppRoutes from './AppRoutes'
 
 afterEach(() => {
   cleanup()
   sessionStorage.clear()
+  vi.unstubAllGlobals()
 })
+
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
 
 function renderAt(path: string) {
   render(
@@ -68,5 +76,26 @@ describe('AppRoutes', () => {
 
     expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
     expect(sessionStorage.getItem('grmr.auth.session')).toBeNull()
+  })
+
+  it('redirects unauthenticated access to /admin/questions back to /login', () => {
+    renderAt('/admin/questions')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the Question list for an authenticated admin at /admin/questions', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 }),
+      ),
+    )
+    seedAdminSession()
+
+    renderAt('/admin/questions')
+
+    expect(screen.getByRole('heading', { name: '문제 관리' })).toBeDefined()
+    await waitFor(() => expect(screen.getByText('조건에 맞는 문제가 없습니다.')).toBeDefined())
   })
 })
