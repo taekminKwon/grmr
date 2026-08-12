@@ -1,0 +1,38 @@
+# Build outputs
+build/
+out/
+bin/
+.gradle/
+
+# Gradle caches / wrapper distributions (wrapper jar itself is needed, keep it)
+.gradle-cache/
+
+# VCS
+.git/
+.gitignore
+.gitattributes
+
+# Editor / IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.factorypath
+.project
+.settings/
+.sts4-cache/
+
+# OS
+.DS_Store
+
+# Secrets / env
+.env
+.env.*
+*.pem
+*.key
+
+# Docs / misc
+HELP.md
+*.md
