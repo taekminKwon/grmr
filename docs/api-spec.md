@@ -55,6 +55,18 @@ refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로�
 
 **Phase 1(MVP) 범위**: 문제 유형(`type`)은 객관식(`MULTIPLE_CHOICE`, 표시 라벨 "객관식")만 지원합니다. `빈칸`/`오류 찾기`는 향후 단계에서 지원 예정인 미래 범위로, Phase 1에서는 사용하지 않습니다.
 
+**상태(`status`) 전이 규칙**: 상태 값은 `초안`/`사용 중`/`사용 중지` 세 가지이며, `PATCH /api/questions/{id}/status`로만 변경합니다(생성 시 항상 `초안`으로 시작).
+
+| 현재 상태 → 목표 상태 | `초안` | `사용 중` | `사용 중지` |
+| --- | --- | --- | --- |
+| **`초안`** | (자기 자신, 요청 대상 아님) | 허용 | **금지** |
+| **`사용 중`** | **금지** | 허용(멱등) | 허용 |
+| **`사용 중지`** | **금지** | 허용 | 허용(멱등) |
+
+- `초안` → `사용 중지` 직접 전이는 금지입니다(`409 Conflict`, `INVALID_STATUS_TRANSITION`).
+- 어떤 상태에서든 `초안`으로 되돌리는 전이는 금지입니다(`400 Bad Request`, `INVALID_QUESTION`). 초안은 최초 생성 시에만 부여되는 상태입니다.
+- 상세 에러 응답과 근거는 [docs/api-spec-detail.md의 상태 변경 섹션](api-spec-detail.md#patch-apiquestionsidstatus--문제-상태-변경)을 참고하세요.
+
 **POST `/api/questions` 요청 예시**
 ```json
 {
@@ -149,6 +161,7 @@ refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로�
 | GET | `/api/me/assignments/{assignmentId}/questions` | 과제에 포함된 문제 목록(풀이용 — 정답/해설 제외) |
 | POST | `/api/me/assignments/{assignmentId}/answers` | 답안 제출/임시 저장 |
 | GET | `/api/me/practice/questions` | 자유 학습용 문제 조회. 쿼리: `category`(취약 문법 우선) |
+| POST | `/api/me/practice/answers` | 자유 학습 답안 제출/임시 저장 |
 
 **POST `/api/me/assignments/{assignmentId}/answers` 요청**
 ```json
@@ -169,6 +182,16 @@ refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로�
   "explanation": "특정 시작 시점과 현재완료가 함께 쓰일 때 since를 사용합니다."
 }
 ```
+
+**POST `/api/me/practice/answers` 요청**: `assignmentId`가 없다는 점을 제외하면 위 과제 답안 제출과 요청/응답 형식이 동일합니다.
+```json
+{
+  "questionId": 1021,
+  "answer": "were",
+  "final": true
+}
+```
+`final: false`는 임시 저장(`{ "saved": true }` 응답), `true`는 채점까지 수행하고 위와 동일한 형태의 채점 결과를 반환합니다. 대상 문제가 `사용 중` 상태가 아니면(`초안`/`사용 중지`) 제출할 수 없습니다. 상세는 [docs/api-spec-detail.md](api-spec-detail.md#post-apimepracticeanswers--자유-학습-답안-제출임시-저장) 참고.
 
 ## 오답노트 (WrongAnswer)
 
