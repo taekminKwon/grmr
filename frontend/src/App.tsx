@@ -1,8 +1,11 @@
+import { BrowserRouter } from 'react-router-dom'
+import AppRoutes from './routes/AppRoutes'
+
 function App() {
   return (
-    <main>
-      <h1>Grammar Lab</h1>
-    </main>
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   )
 }
 
