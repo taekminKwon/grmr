@@ -3,65 +3,88 @@
   min-height: 100vh;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: var(--space-5);
+  background-color: var(--color-background);
+}
+
+.login-card {
+  display: flex;
+  width: 100%;
+  max-width: 24rem;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.login-brand {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-align: center;
+  letter-spacing: 0.01em;
 }
 
 .login-form {
   display: flex;
-  width: 100%;
-  max-width: 22rem;
   flex-direction: column;
-  gap: 1rem;
-  padding: 2rem;
-  border: 1px solid #d0d5dd;
-  border-radius: 0.5rem;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .login-form h1 {
   margin: 0;
   font-size: 1.5rem;
+  color: var(--color-text);
+}
+
+.login-subtitle {
+  margin: calc(var(--space-2) * -1) 0 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
 }
 
 .login-field {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--space-2);
 }
 
 .login-field label {
   font-size: 0.875rem;
   font-weight: 600;
+  color: var(--color-text);
 }
 
 .login-field input {
   padding: 0.625rem 0.75rem;
-  border: 1px solid #98a2b3;
-  border-radius: 0.375rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
   font-size: 1rem;
+  color: var(--color-text);
+  background-color: var(--color-white);
+}
+
+.login-field input:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
 }
 
 .login-error {
   min-height: 1.25rem;
   font-size: 0.875rem;
-  color: #b42318;
+  color: var(--color-danger);
 }
 
-.login-form button {
-  padding: 0.625rem 0.75rem;
-  border: none;
-  border-radius: 0.375rem;
-  background-color: #1d4ed8;
-  color: #fff;
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-.login-form button:hover {
-  background-color: #1e40af;
+.login-form .btn {
+  width: 100%;
 }
 
 @media (max-width: 480px) {
   .login-form {
-    padding: 1.5rem;
+    padding: var(--space-5);
   }
 }

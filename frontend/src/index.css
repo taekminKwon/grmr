@@ -1,5 +1,7 @@
+@import './styles/tokens.css';
+
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 *,
@@ -10,4 +12,24 @@
 
 body {
   margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
 }
