@@ -52,6 +52,23 @@ services:
       redis:
         condition: service_healthy
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: grmr-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
   grmr-postgres-data:
   grmr-redis-data:
