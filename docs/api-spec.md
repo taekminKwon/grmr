@@ -146,6 +146,8 @@ refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로�
 
 `type`의 API 쿼리·응답 값은 항상 `ASSIGNMENT`(과제) 또는 `PRACTICE`(자유 학습)입니다. "과제"/"자유 학습"은 화면 표시용 한글 라벨일 뿐 API 값으로는 사용하지 않습니다.
 
+**Phase 2 범위**: 과제(Assignment) 기능이 아직 없으므로 Phase 2에서는 `type: "PRACTICE"` 기록만 생성됩니다. 이 두 엔드포인트는 여러 학생/기간에 걸친 일자별 집계(rollup) 조회용이며, 제출 건별 상세(스냅샷)는 [자유 학습(Practice)](#자유-학습-practice-phase-2-구현-범위)의 `GET /api/me/practice/records`/`GET /api/me/practice/records/{id}`를 사용합니다.
+
 ## 대시보드
 
 | Method | Path | 설명 |
@@ -155,13 +157,15 @@ refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로�
 
 ## 내 과제 / 문제 풀이 (학생)
 
+**Phase 2 구현 범위**: 이 섹션 중 **자유 학습(Practice)** 엔드포인트만 Phase 2에서 구현합니다. **내 과제(Assignment)** 엔드포인트는 과제 기능 자체가 아직 구현되지 않아 계약만 정의된 향후 범위이며, Phase 2 백엔드 구현 대상이 아닙니다.
+
+### 내 과제 (향후 범위 — Phase 2 제외)
+
 | Method | Path | 설명 |
 | --- | --- | --- |
 | GET | `/api/me/assignments` | 내 과제 목록 (진행률, 마감일 포함) |
 | GET | `/api/me/assignments/{assignmentId}/questions` | 과제에 포함된 문제 목록(풀이용 — 정답/해설 제외) |
 | POST | `/api/me/assignments/{assignmentId}/answers` | 답안 제출/임시 저장 |
-| GET | `/api/me/practice/questions` | 자유 학습용 문제 조회. 쿼리: `category`(취약 문법 우선) |
-| POST | `/api/me/practice/answers` | 자유 학습 답안 제출/임시 저장 |
 
 **POST `/api/me/assignments/{assignmentId}/answers` 요청**
 ```json
@@ -183,15 +187,79 @@ refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로�
 }
 ```
 
-**POST `/api/me/practice/answers` 요청**: `assignmentId`가 없다는 점을 제외하면 위 과제 답안 제출과 요청/응답 형식이 동일합니다.
+### 자유 학습 (Practice, Phase 2 구현 범위)
+
+| Method | Path | 설명 |
+| --- | --- | --- |
+| GET | `/api/me/practice/questions/next` | 자유 학습 문제 조회 — 조건에 맞는 `사용 중` 객관식 문제 중 하나를 반환(정답/해설 제외). 쿼리: `category`, `level` (둘 다 선택) |
+| POST | `/api/me/practice/answers` | 자유 학습 답안 제출 — 서버가 즉시 채점하고 학습 기록(StudyRecord)을 생성 |
+| GET | `/api/me/practice/records` | 내 자유 학습 기록 목록(제출 이력, 페이지네이션). 쿼리: `category`, `page`, `size` |
+| GET | `/api/me/practice/records/{id}` | 내 자유 학습 기록 상세(제출 시점 문제 스냅샷 포함) |
+
+자유 학습에는 임시 저장 개념이 없습니다(제출은 항상 즉시 채점). 같은 문제를 여러 번 제출해도(재응시) 매번 새 학습 기록이 생성되며 이전 기록을 덮어쓰지 않습니다. 상세는 [docs/api-spec-detail.md](api-spec-detail.md#자유-학습-practice-phase-2-구현-범위) 참고.
+
+**GET `/api/me/practice/questions/next` 응답 예시**
 ```json
 {
-  "questionId": 1021,
-  "answer": "were",
-  "final": true
+  "id": 1021,
+  "category": "가정법",
+  "level": "심화",
+  "type": "객관식",
+  "text": "If I _____ you, I would study harder.",
+  "choices": ["am", "was", "were", "be"]
 }
 ```
-`final: false`는 임시 저장(`{ "saved": true }` 응답), `true`는 채점까지 수행하고 위와 동일한 형태의 채점 결과를 반환합니다. 대상 문제가 `사용 중` 상태가 아니면(`초안`/`사용 중지`) 제출할 수 없습니다. 상세는 [docs/api-spec-detail.md](api-spec-detail.md#post-apimepracticeanswers--자유-학습-답안-제출임시-저장) 참고.
+정답(`answer`)과 해설(`explanation`)은 포함하지 않습니다. 조건에 맞는 문제가 없으면 `404 Not Found`(`NO_QUESTION_AVAILABLE`)를 반환합니다.
+
+**POST `/api/me/practice/answers` 요청**
+```json
+{ "questionId": 1021, "answer": "were" }
+```
+
+**응답**
+```json
+{
+  "id": 501,
+  "questionId": 1021,
+  "correct": true,
+  "submittedAnswer": "were",
+  "correctAnswer": "were",
+  "explanation": "가정법 과거에서는 주어의 인칭에 관계없이 be동사로 were를 씁니다.",
+  "submittedAt": "2026-08-13T10:15:00"
+}
+```
+`id`는 새로 생성된 학습 기록(StudyRecord)의 ID입니다. 대상 문제가 `사용 중` 상태가 아니거나 객관식이 아니면 제출할 수 없습니다(`409 Conflict`).
+
+**GET `/api/me/practice/records` 응답 예시**
+```json
+{
+  "content": [
+    { "id": 501, "questionId": 1021, "type": "PRACTICE", "category": "가정법", "level": "심화", "correct": true, "submittedAt": "2026-08-13T10:15:00" }
+  ],
+  "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
+}
+```
+
+**GET `/api/me/practice/records/{id}` 응답 예시**
+```json
+{
+  "id": 501,
+  "questionId": 1021,
+  "type": "PRACTICE",
+  "question": {
+    "category": "가정법",
+    "level": "심화",
+    "text": "If I _____ you, I would study harder.",
+    "choices": ["am", "was", "were", "be"],
+    "correctAnswer": "were",
+    "explanation": "가정법 과거에서는 주어의 인칭에 관계없이 be동사로 were를 씁니다."
+  },
+  "submittedAnswer": "were",
+  "correct": true,
+  "submittedAt": "2026-08-13T10:15:00"
+}
+```
+`question`은 제출 시점 스냅샷입니다. 이후 원본 문제(`questionId`)가 수정되거나 상태가 바뀌어도 이 값은 변하지 않습니다. 다른 학생의 기록이거나 존재하지 않는 `id`는 `404 Not Found`(`STUDY_RECORD_NOT_FOUND`)를 반환합니다(자신의 기록 존재 여부를 그 외에는 노출하지 않기 위해 `403` 대신 `404`를 사용).
 
 ## 오답노트 (WrongAnswer)
 
