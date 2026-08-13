@@ -2,10 +2,14 @@ package com.ewha_eng.grmr.global.exception;
 
 import com.ewha_eng.grmr.auth.domain.InvalidCredentialsException;
 import com.ewha_eng.grmr.auth.domain.InvalidRefreshTokenException;
+import com.ewha_eng.grmr.member.domain.MemberNotFoundException;
 import com.ewha_eng.grmr.question.domain.GptGenerationFailedException;
 import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
 import com.ewha_eng.grmr.question.domain.InvalidStatusTransitionException;
+import com.ewha_eng.grmr.question.domain.NoQuestionAvailableException;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
+import com.ewha_eng.grmr.question.domain.QuestionNotInUseException;
+import com.ewha_eng.grmr.question.domain.QuestionTypeNotSupportedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -54,5 +58,29 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleGptGenerationFailed(GptGenerationFailedException e) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
             .body(new ErrorResponse("GPT_GENERATION_FAILED", e.getMessage()));
+    }
+
+    @ExceptionHandler(NoQuestionAvailableException.class)
+    public ResponseEntity<ErrorResponse> handleNoQuestionAvailable(NoQuestionAvailableException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ErrorResponse("NO_QUESTION_AVAILABLE", e.getMessage()));
+    }
+
+    @ExceptionHandler(QuestionNotInUseException.class)
+    public ResponseEntity<ErrorResponse> handleQuestionNotInUse(QuestionNotInUseException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ErrorResponse("QUESTION_NOT_IN_USE", e.getMessage()));
+    }
+
+    @ExceptionHandler(QuestionTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleQuestionTypeNotSupported(QuestionTypeNotSupportedException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ErrorResponse("QUESTION_TYPE_NOT_SUPPORTED", e.getMessage()));
+    }
+
+    @ExceptionHandler(MemberNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleMemberNotFound(MemberNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ErrorResponse("MEMBER_NOT_FOUND", e.getMessage()));
     }
 }

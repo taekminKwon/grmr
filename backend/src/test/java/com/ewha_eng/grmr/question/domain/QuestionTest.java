@@ -292,6 +292,55 @@ class QuestionTest {
             .isInstanceOf(InvalidQuestionException.class);
     }
 
+    @Test
+    void validateAvailableForPractice_doesNotThrow_whenActiveAndMultipleChoice() {
+        Question question = multipleChoiceQuestion();
+        question.activate();
+
+        question.validateAvailableForPractice();
+    }
+
+    @Test
+    void validateAvailableForPractice_throwsQuestionNotInUseException_whenStatusIsDraft() {
+        Question question = multipleChoiceQuestion();
+
+        assertThatThrownBy(question::validateAvailableForPractice)
+            .isInstanceOf(QuestionNotInUseException.class)
+            .hasMessage("사용 중인 문제만 풀 수 있습니다.");
+    }
+
+    @Test
+    void validateAvailableForPractice_throwsQuestionNotInUseException_whenStatusIsInactive() {
+        Question question = multipleChoiceQuestion();
+        question.activate();
+        question.deactivate();
+
+        assertThatThrownBy(question::validateAvailableForPractice)
+            .isInstanceOf(QuestionNotInUseException.class);
+    }
+
+    @Test
+    void validateAvailableForPractice_throwsQuestionTypeNotSupportedException_whenActiveButNotMultipleChoice() {
+        Question question = fillInBlankQuestion();
+        question.activate();
+
+        assertThatThrownBy(question::validateAvailableForPractice)
+            .isInstanceOf(QuestionTypeNotSupportedException.class)
+            .hasMessage("객관식 문제만 풀 수 있습니다.");
+    }
+
+    private Question multipleChoiceQuestion() {
+        return Question.builder()
+            .category("현재완료")
+            .type(QuestionType.MULTIPLE_CHOICE)
+            .level(QuestionLevel.INTERMEDIATE)
+            .text("He has lived here _____ 2010.")
+            .choices(List.of("for", "since", "during", "from"))
+            .answer("since")
+            .explanation("특정 시작 시점과 현재완료가 함께 쓰일 때 since를 사용합니다.")
+            .build();
+    }
+
     private Question fillInBlankQuestion() {
         return Question.builder()
             .category("관계대명사")

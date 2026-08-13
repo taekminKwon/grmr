@@ -30,6 +30,32 @@
   padding: 0;
 }
 
+.student-nav-link {
+  display: flex;
+  align-items: center;
+  padding: 0.625rem var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.student-nav-link:hover {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.student-nav-link[aria-current='page'] {
+  color: var(--color-primary);
+  background-color: var(--color-primary-soft);
+}
+
+.student-nav-link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .student-nav-item-disabled {
   display: flex;
   align-items: center;

@@ -129,14 +129,14 @@ describe('AppRoutes', () => {
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
   })
 
-  it('shows Practice and My Study as coming-soon placeholders for a STUDENT, with no admin navigation', () => {
+  it('shows Practice linked to /student/practice and My Study as coming-soon for a STUDENT, with no admin navigation', () => {
     seedStudentSession()
 
     renderAt('/student')
 
-    expect(screen.getByText('Practice')).toBeDefined()
+    expect(screen.getByRole('link', { name: 'Practice' }).getAttribute('href')).toBe('/student/practice')
     expect(screen.getByText('My Study')).toBeDefined()
-    expect(screen.getAllByText('Coming soon')).toHaveLength(2)
+    expect(screen.getAllByText('Coming soon')).toHaveLength(1)
     expect(screen.queryByRole('link', { name: 'Questions' })).toBeNull()
   })
 
@@ -273,6 +273,54 @@ describe('AppRoutes', () => {
     )
 
     renderAt('/admin/questions/1024')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
+
+  it('redirects unauthenticated access to /student/practice back to /login', () => {
+    renderAt('/student/practice')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the Practice page for an authenticated STUDENT at /student/practice', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, {
+          id: 2001,
+          category: '현재완료',
+          type: '객관식',
+          level: '보통',
+          text: 'He has lived here _____ 2010.',
+          choices: ['for', 'since', 'during', 'from'],
+        }),
+      ),
+    )
+    seedStudentSession()
+
+    renderAt('/student/practice')
+
+    expect(screen.getByRole('heading', { name: 'Practice' })).toBeDefined()
+    await waitFor(() => expect(screen.getByText('He has lived here _____ 2010.')).toBeDefined())
+  })
+
+  it('renders a forbidden state for an authenticated ADMIN at /student/practice', () => {
+    seedAdminSession()
+
+    renderAt('/student/practice')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: 'Practice' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /student/practice when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/student/practice')
 
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
   })
