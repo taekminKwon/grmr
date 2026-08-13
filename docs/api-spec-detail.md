@@ -511,6 +511,8 @@
 
 `type`의 API 쿼리 값과 응답 값은 항상 `ASSIGNMENT`(과제) 또는 `PRACTICE`(자유 학습)입니다. "과제"/"자유 학습"은 화면에 표시하는 한글 라벨일 뿐, API 쿼리·응답 값으로는 사용하지 않습니다.
 
+**Phase 2 범위**: 과제(Assignment) 기능이 아직 없으므로 Phase 2에서는 `type: "PRACTICE"` 기록만 생성됩니다. 아래 두 엔드포인트는 여러 학생/기간에 걸친 일자별 집계(rollup) 조회용이며, 제출 건별 상세(스냅샷 포함)는 이 문서의 [자유 학습(Practice)](#자유-학습-practice-phase-2-구현-범위) 절의 `GET /api/me/practice/records`/`GET /api/me/practice/records/{id}`를 사용합니다. `StudyRecord` 자체(스냅샷 필드, 불변성, 재응시 처리)에 대한 정의도 그 절에서 함께 다룹니다.
+
 ### GET `/api/study-records` — 학습 이력 조회 (관리자용)
 
 **Query Parameters**: `studentId`, `period`(`7d`/`30d`), `type`(`ASSIGNMENT`/`PRACTICE`), `page`, `size`
@@ -595,7 +597,11 @@
 
 ## 내 과제 / 문제 풀이 (학생)
 
-### GET `/api/me/assignments` — 내 과제 목록
+**Phase 2 구현 범위**: 이 문서 중 [자유 학습(Practice)](#자유-학습-practice-phase-2-구현-범위) 절만 Phase 2에서 구현합니다. 아래 "내 과제" 절(과제 목록/과제 문제/과제 답안 제출)은 과제(Assignment) 기능 자체가 아직 없어 계약만 정의된 향후 범위이며 변경하지 않았습니다.
+
+### 내 과제 (향후 범위 — Phase 2 제외)
+
+#### GET `/api/me/assignments` — 내 과제 목록
 
 **Response** `200 OK`
 ```json
@@ -606,7 +612,7 @@
 }
 ```
 
-### GET `/api/me/assignments/{assignmentId}/questions` — 과제 문제 목록 (풀이용)
+#### GET `/api/me/assignments/{assignmentId}/questions` — 과제 문제 목록 (풀이용)
 
 정답·해설은 제출 전까지 노출하지 않습니다.
 
@@ -622,7 +628,7 @@
 
 **Error**: `404 Not Found` `{ "code": "ASSIGNMENT_NOT_FOUND", "message": "과제를 찾을 수 없습니다." }`
 
-### POST `/api/me/assignments/{assignmentId}/answers` — 답안 제출/임시 저장
+#### POST `/api/me/assignments/{assignmentId}/answers` — 답안 제출/임시 저장
 
 **Request Body**
 
@@ -655,60 +661,198 @@
 
 **Error**: `404 Not Found`(`QUESTION_NOT_FOUND`), `409 Conflict` `{ "code": "ASSIGNMENT_CLOSED", "message": "마감된 과제에는 답안을 제출할 수 없습니다." }`
 
-### GET `/api/me/practice/questions` — 자유 학습 문제 조회
+### 자유 학습 (Practice, Phase 2 구현 범위)
 
-**Query Parameters**: `category` (미지정 시 취약 문법 우선 출제)
+이 절은 GitHub Issue #32(학생 객관식 자유 학습 + StudyRecord)의 계약이며, `/api/me/**`이므로 `ROLE_STUDENT`만 접근할 수 있습니다(`global/security/SecurityConfig.java`의 기존 경로 규칙을 그대로 따르며, 이 기능을 위한 보안 설정 변경은 없습니다). 학생의 식별은 항상 access token의 `memberId`(subject)로부터 얻으며, 요청 바디·경로·쿼리에 학생 ID를 받지 않습니다(다른 학생의 자원에 접근할 방법 자체가 없음).
 
-**Response** `200 OK`: `GET /api/me/assignments/{assignmentId}/questions`와 동일한 문제 구조를 `assignmentId` 없이 반환
+**StudyRecord (자유 학습분)**
+
+- 답안을 제출(`POST /api/me/practice/answers`)할 때마다 새 StudyRecord 1건이 생성됩니다. **불변**이며, 이를 수정·삭제하는 API는 없습니다.
+- 같은 문제를 다시 제출해도(재응시) 기존 기록을 덮어쓰거나 병합하지 않고 항상 새 기록을 추가합니다. 멱등성이 없습니다 — 클라이언트가 실수로 같은 제출을 두 번 보내면 StudyRecord도 2건 생성됩니다(중복 방지용 idempotency key는 Phase 2 범위 밖).
+- 생성 시점에 원본 `Question`의 `category`/`level`/`text`/`choices`/`answer`(정답)/`explanation`을 **스냅샷으로 함께 저장**합니다. 이후 관리자가 해당 문제를 수정(`PATCH /api/questions/{id}`)하거나 상태를 변경(`PATCH /api/questions/{id}/status`)해도 이미 생성된 StudyRecord의 스냅샷 값은 바뀌지 않습니다. `questionId`로 원본 문제를 참조하지만, 표시에는 항상 스냅샷을 사용합니다. Phase 2에는 문제 삭제 API가 없으므로(`PATCH`로 상태만 변경) `questionId`가 가리키는 원본이 사라지는 경우는 없지만, 상태가 `사용 중지`로 바뀐 뒤에도 스냅샷 조회에는 영향이 없습니다.
+- `type`은 항상 `PRACTICE`입니다(Phase 2는 과제 기능이 없어 `ASSIGNMENT` 기록이 생성되지 않음).
+
+---
+
+#### GET `/api/me/practice/questions/next` — 자유 학습 문제 조회 (한 번에 하나)
+
+**Query Parameters**
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `category` | string | | 문법 항목 필터 (미지정 시 전체 문법 항목 대상) |
+| `level` | string | | 난이도 필터 (`기초`/`보통`/`심화`, 미지정 시 전체 난이도 대상) |
+
+문제 유형은 요청에서 지정할 수 없고 항상 객관식(`MULTIPLE_CHOICE`)으로 고정됩니다. 조회 대상은 `상태: 사용 중`인 객관식 문제로 한정합니다(`초안`/`사용 중지`는 노출되지 않습니다).
+
+**선택 방식**: 조건(상태=`사용 중`, 유형=객관식, `category`/`level` 필터)에 맞는 문제 중 서버가 **매 요청마다 독립적으로 무작위로 하나**를 골라 반환합니다(균등 무작위, 복원 추출). 이전에 낸 문제나 학생의 풀이 이력을 고려하지 않으므로 같은 문제가 연속으로 나올 수 있습니다 — 재응시가 허용되는 정책과 일치하는 의도된 동작입니다.
+
+**Response** `200 OK`
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | long | 문제 ID |
+| `category` | string | |
+| `level` | string | `기초`/`보통`/`심화` |
+| `type` | string | 항상 `"객관식"` |
+| `text` | string | 문제 본문 |
+| `choices` | string[] | 객관식 보기 |
+
 ```json
 {
-  "questions": [
-    { "id": 1021, "category": "가정법", "text": "If I _____ you, I would study harder.", "choices": ["am", "was", "were", "be"] }
-  ]
+  "id": 1021,
+  "category": "가정법",
+  "level": "심화",
+  "type": "객관식",
+  "text": "If I _____ you, I would study harder.",
+  "choices": ["am", "was", "were", "be"]
 }
 ```
 
-자유 학습 문제 조회 대상은 `상태: 사용 중`인 문제로 한정합니다(`초안`/`사용 중지`는 학생에게 노출되지 않습니다).
+`answer`(정답)와 `explanation`(해설) 필드는 응답에 포함하지 않습니다(정답 유출 방지).
 
-### POST `/api/me/practice/answers` — 자유 학습 답안 제출/임시 저장
+**Error**:
+- `400 Bad Request` `{ "code": "INVALID_QUESTION", "message": "알 수 없는 난이도입니다: {level}" }` — `level`이 `기초`/`보통`/`심화` 중 하나가 아닌 경우(`GET /api/questions`의 `level` 필터와 동일하게 `QuestionLevel.fromLabel`을 재사용)
+- `404 Not Found` `{ "code": "NO_QUESTION_AVAILABLE", "message": "조건에 맞는 문제가 없습니다." }` — 조건에 맞는 `사용 중` 객관식 문제가 하나도 없는 경우(전체 미존재 포함)
 
-`POST /api/me/assignments/{assignmentId}/answers`와 동일한 요청/응답 형식을 사용하되, 과제에 속하지 않는 자유 학습 문제(`GET /api/me/practice/questions`로 조회한 문제)를 대상으로 합니다. `assignmentId`는 없습니다.
+---
+
+#### POST `/api/me/practice/answers` — 자유 학습 답안 제출
 
 **Request Body**
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `questionId` | long | ✓ | 대상 문제 ID |
+| `questionId` | long | ✓ | 대상 문제 ID (`GET /api/me/practice/questions/next`로 조회한 문제) |
 | `answer` | string | ✓ | 제출한 답 |
-| `final` | boolean | ✓ | `false`: 임시 저장, `true`: 채점 |
 
 ```json
-{ "questionId": 1021, "answer": "were", "final": true }
+{ "questionId": 1021, "answer": "were" }
 ```
+
+임시 저장 개념은 없습니다 — 제출은 항상 즉시 서버 채점으로 이어지고 StudyRecord 1건을 생성합니다.
 
 **Response** `200 OK`
 
-`final: false`
-```json
-{ "saved": true }
-```
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | long | 새로 생성된 StudyRecord ID |
+| `questionId` | long | |
+| `correct` | boolean | 제출한 `answer`가 정답과 일치하는지 여부 |
+| `submittedAnswer` | string | 제출한 답 (요청의 `answer`와 동일) |
+| `correctAnswer` | string | 문제의 정답(스냅샷) |
+| `explanation` | string | 문제의 해설(스냅샷) |
+| `submittedAt` | datetime | 제출 시각 |
 
-`final: true`
 ```json
 {
+  "id": 501,
   "questionId": 1021,
   "correct": true,
-  "answer": "were",
-  "explanation": "가정법 과거에서는 주어의 인칭에 관계없이 be동사로 were를 씁니다."
+  "submittedAnswer": "were",
+  "correctAnswer": "were",
+  "explanation": "가정법 과거에서는 주어의 인칭에 관계없이 be동사로 were를 씁니다.",
+  "submittedAt": "2026-08-13T10:15:00"
 }
 ```
 
-`correct`는 제출한 `answer`가 문제의 정답과 일치하는지 여부이며, `answer`/`explanation`은 (제출 값이 아닌) 문제의 정답/해설입니다. 이 필드 의미는 과제 답안 제출 응답과 동일합니다.
-
 **Error**:
-- `400 Bad Request` `{ "code": "INVALID_REQUEST", "message": "..." }` — `questionId`/`answer`/`final` 누락 또는 형식 오류
-- `404 Not Found` `{ "code": "QUESTION_NOT_FOUND", "message": "문제를 찾을 수 없습니다." }`
+- `400 Bad Request` `{ "code": "INVALID_REQUEST", "message": "..." }` — `questionId`/`answer` 누락 또는 형식 오류
+- `404 Not Found` `{ "code": "QUESTION_NOT_FOUND", "message": "문제를 찾을 수 없습니다." }` — `questionId`에 해당하는 문제가 없는 경우
 - `409 Conflict` `{ "code": "QUESTION_NOT_IN_USE", "message": "사용 중인 문제만 풀 수 있습니다." }` — 대상 문제 상태가 `사용 중`이 아닌 경우(`초안`/`사용 중지`)
+- `409 Conflict` `{ "code": "QUESTION_TYPE_NOT_SUPPORTED", "message": "객관식 문제만 풀 수 있습니다." }` — 대상 문제 유형이 객관식이 아닌 경우(Phase 2는 객관식만 지원; `questionId`를 직접 조작해 빈칸/오류 찾기 문제를 제출하려는 경우에 대한 방어)
+
+---
+
+#### GET `/api/me/practice/records` — 내 자유 학습 기록 목록
+
+**Query Parameters**
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `category` | string | | 스냅샷 문법 항목 필터 |
+| `page` | int | | 기본값 0 |
+| `size` | int | | 기본값 20 |
+
+**Response** `200 OK`
+```json
+{
+  "content": [
+    { "id": 501, "questionId": 1021, "type": "PRACTICE", "category": "가정법", "level": "심화", "correct": true, "submittedAt": "2026-08-13T10:15:00" }
+  ],
+  "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
+}
+```
+
+목록 항목은 요약 필드만 포함합니다(`text`/`choices`/정답/해설 제외). 항상 요청한 학생 본인의 기록만 반환합니다(다른 학생의 기록은 조회 결과에 나타나지 않음). 최신 제출이 먼저 오도록 `submittedAt` 내림차순으로 정렬합니다.
+
+---
+
+#### GET `/api/me/practice/records/{id}` — 내 자유 학습 기록 상세
+
+**Path Parameters**: `id` (long, StudyRecord ID)
+
+**Response** `200 OK`
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | long | |
+| `questionId` | long | 원본 문제 참조(표시는 항상 아래 `question` 스냅샷 사용) |
+| `type` | string | 항상 `"PRACTICE"` |
+| `question` | object | 제출 시점 문제 스냅샷 |
+| `question.category` | string | |
+| `question.level` | string | |
+| `question.text` | string | |
+| `question.choices` | string[] | |
+| `question.correctAnswer` | string | |
+| `question.explanation` | string | |
+| `submittedAnswer` | string | 제출한 답 |
+| `correct` | boolean | |
+| `submittedAt` | datetime | |
+
+```json
+{
+  "id": 501,
+  "questionId": 1021,
+  "type": "PRACTICE",
+  "question": {
+    "category": "가정법",
+    "level": "심화",
+    "text": "If I _____ you, I would study harder.",
+    "choices": ["am", "was", "were", "be"],
+    "correctAnswer": "were",
+    "explanation": "가정법 과거에서는 주어의 인칭에 관계없이 be동사로 were를 씁니다."
+  },
+  "submittedAnswer": "were",
+  "correct": true,
+  "submittedAt": "2026-08-13T10:15:00"
+}
+```
+
+**Error**: `404 Not Found` `{ "code": "STUDY_RECORD_NOT_FOUND", "message": "학습 기록을 찾을 수 없습니다." }` — `id`가 존재하지 않거나 **다른 학생 소유인 경우에도 동일하게 404**를 반환합니다(다른 학생의 기록 존재 여부를 `403`으로 노출하지 않기 위함 — 소유권 검사는 조회 쿼리 자체를 "본인 소유 AND id 일치"로 제한해 구현하고, 소유자가 다르면 애초에 조회되지 않도록 합니다).
+
+---
+
+#### 인수 테스트 시나리오 (Acceptance Examples)
+
+아래 시나리오는 백엔드 통합 테스트와 프론트엔드 계약 테스트가 그대로 가져다 쓸 수 있는 구체적인 예시입니다. 문제 데이터는 `GET /api/questions` 예시(`id: 1024`, 정답 `since`)와 위 가정법 문제(`id: 1021`, 정답 `were`, 상태 `사용 중`)를 사용합니다.
+
+| # | 시나리오 | 요청 | 기대 결과 |
+| --- | --- | --- | --- |
+| 1 | 필터 없이 다음 문제 조회 | `GET /api/me/practice/questions/next` | `200`, `사용 중` 객관식 문제 중 하나(정답/해설 없음) |
+| 2 | `category`+`level` 필터로 조회 | `GET /api/me/practice/questions/next?category=가정법&level=심화` | `200`, `id: 1021` 문제 반환 |
+| 3 | 조건에 맞는 문제 없음 | `GET /api/me/practice/questions/next?category=존재하지않는항목` | `404` `NO_QUESTION_AVAILABLE` |
+| 4 | 잘못된 `level` 값 | `GET /api/me/practice/questions/next?level=매우쉬움` | `400` `INVALID_QUESTION` |
+| 5 | 정답 제출 | `POST /api/me/practice/answers` `{ "questionId": 1021, "answer": "were" }` | `200`, `correct: true`, `correctAnswer: "were"`, StudyRecord 1건 생성 |
+| 6 | 오답 제출 | `POST /api/me/practice/answers` `{ "questionId": 1021, "answer": "am" }` | `200`, `correct: false`, `submittedAnswer: "am"`, `correctAnswer: "were"`(정답 그대로 공개) |
+| 7 | 같은 문제 재응시 | 5번 이후 다시 `POST /api/me/practice/answers` `{ "questionId": 1021, "answer": "am" }` | `200`, 새 `id`(5번과 다른 StudyRecord ID)로 별도 기록 생성. 5번 기록은 그대로 유지됨 |
+| 8 | 존재하지 않는 문제 제출 | `POST /api/me/practice/answers` `{ "questionId": 999999, "answer": "were" }` | `404` `QUESTION_NOT_FOUND` |
+| 9 | `초안`/`사용 중지` 문제 제출 | 상태가 `사용 중`이 아닌 `questionId`로 제출 | `409` `QUESTION_NOT_IN_USE` |
+| 10 | 문제 수정 후 기존 기록 스냅샷 불변 확인 | 5번 제출 후 관리자가 `PATCH /api/questions/1021`로 `explanation` 변경 → `GET /api/me/practice/records/{5번 id}` | `200`, `question.explanation`은 제출 당시 값 그대로(수정된 값 아님) |
+| 11 | 본인 기록 목록 | `GET /api/me/practice/records` | `200`, `content`에 5·6·7번에서 생성된 기록만 포함(다른 학생 기록 없음) |
+| 12 | 본인 기록 상세 | `GET /api/me/practice/records/{5번 id}` | `200`, 전체 스냅샷 반환 |
+| 13 | 다른 학생 기록 상세 접근 | 학생 B의 토큰으로 `GET /api/me/practice/records/{5번 id}`(학생 A 소유) | `404` `STUDY_RECORD_NOT_FOUND` (`403` 아님) |
+| 14 | 필수 필드 누락 제출 | `POST /api/me/practice/answers` `{ "questionId": 1021 }` | `400` `INVALID_REQUEST` |
 
 ---
 
