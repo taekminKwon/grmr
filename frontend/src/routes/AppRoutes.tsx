@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
 import LoginPage from '../pages/LoginPage'
 import QuestionCreatePage from '../pages/QuestionCreatePage'
+import QuestionDetailPage from '../pages/QuestionDetailPage'
 import QuestionListPage from '../pages/QuestionListPage'
 import ProtectedRoute from './ProtectedRoute'
 
@@ -34,6 +35,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="ADMIN">
             <QuestionCreatePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/questions/:id"
+        element={
+          <ProtectedRoute requiredRole="ADMIN">
+            <QuestionDetailPage />
           </ProtectedRoute>
         }
       />

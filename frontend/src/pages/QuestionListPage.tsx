@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { QuestionApiError, questionApi } from '../api/questionApi'
 import {
   PHASE_1_QUESTION_TYPES,
@@ -292,6 +292,9 @@ function QuestionListPage() {
                     <th scope="col">난이도</th>
                     <th scope="col">상태</th>
                     <th scope="col">문제 내용</th>
+                    <th scope="col">
+                      <span className="sr-only">상세</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -307,6 +310,12 @@ function QuestionListPage() {
                         </span>
                       </td>
                       <td className="question-table-text">{item.text}</td>
+                      <td>
+                        <Link className="question-table-detail-link" to={`/admin/questions/${item.id}`}>
+                          상세보기
+                          <span className="sr-only">{`(ID ${item.id})`}</span>
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

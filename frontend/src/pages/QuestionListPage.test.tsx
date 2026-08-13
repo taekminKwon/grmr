@@ -40,6 +40,7 @@ function renderQuestionListPage(initialEntries: (string | { pathname: string; st
         <Routes>
           <Route path="/admin/questions" element={<QuestionListPage />} />
           <Route path="/admin/questions/new" element={<div>Question create landing</div>} />
+          <Route path="/admin/questions/:id" element={<div>Question detail landing</div>} />
           <Route path="/login" element={<div>Login landing</div>} />
         </Routes>
       </MemoryRouter>
@@ -264,6 +265,19 @@ describe('QuestionListPage', () => {
     fireEvent.click(addButton)
 
     expect(screen.getByText('Question create landing')).toBeDefined()
+  })
+
+  it('navigates to the question detail page when 상세보기 is clicked', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(jsonResponse(200, pageResponse([rawQuestion])))
+    vi.stubGlobal('fetch', fetchSpy)
+    seedAdminSession()
+
+    renderQuestionListPage()
+    await waitFor(() => expect(screen.getByText('He has lived here _____ 2010.')).toBeDefined())
+
+    fireEvent.click(screen.getByRole('link', { name: /상세보기/ }))
+
+    expect(screen.getByText('Question detail landing')).toBeDefined()
   })
 
   it('hides the 문제 추가 entry point for a STUDENT session', async () => {

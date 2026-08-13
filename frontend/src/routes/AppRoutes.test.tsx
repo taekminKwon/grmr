@@ -159,4 +159,56 @@ describe('AppRoutes', () => {
 
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
   })
+
+  it('redirects unauthenticated access to /admin/questions/:id back to /login', () => {
+    renderAt('/admin/questions/1024')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the Question detail for an authenticated admin at /admin/questions/:id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, {
+          id: 1024,
+          category: '현재완료',
+          type: '객관식',
+          level: '보통',
+          status: '사용 중',
+          text: 'He has lived here _____ 2010.',
+          choices: ['for', 'since'],
+          answer: 'since',
+          explanation: '설명',
+          createdAt: '2026-07-20T10:15:00',
+        }),
+      ),
+    )
+    seedAdminSession()
+
+    renderAt('/admin/questions/1024')
+
+    expect(screen.getByRole('heading', { name: '문제 상세' })).toBeDefined()
+    await waitFor(() => expect(screen.getByText('He has lived here _____ 2010.')).toBeDefined())
+  })
+
+  it('renders a forbidden state for an authenticated STUDENT at /admin/questions/:id', () => {
+    seedStudentSession()
+
+    renderAt('/admin/questions/1024')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '문제 상세' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /admin/questions/:id when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/admin/questions/1024')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
 })
