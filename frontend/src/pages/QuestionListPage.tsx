@@ -292,9 +292,6 @@ function QuestionListPage() {
                     <th scope="col">난이도</th>
                     <th scope="col">상태</th>
                     <th scope="col">문제 내용</th>
-                    <th scope="col">
-                      <span className="sr-only">상세</span>
-                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -309,11 +306,9 @@ function QuestionListPage() {
                           {QUESTION_STATUS_LABELS[item.status]}
                         </span>
                       </td>
-                      <td className="question-table-text">{item.text}</td>
-                      <td>
-                        <Link className="question-table-detail-link" to={`/admin/questions/${item.id}`}>
-                          상세보기
-                          <span className="sr-only">{`(ID ${item.id})`}</span>
+                      <td className="question-table-text">
+                        <Link className="question-table-text-link" to={`/admin/questions/${item.id}`}>
+                          {item.text}
                         </Link>
                       </td>
                     </tr>

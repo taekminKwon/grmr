@@ -267,7 +267,7 @@ describe('QuestionListPage', () => {
     expect(screen.getByText('Question create landing')).toBeDefined()
   })
 
-  it('navigates to the question detail page when 상세보기 is clicked', async () => {
+  it('navigates to the question detail page when the question text link is clicked', async () => {
     const fetchSpy = vi.fn().mockResolvedValue(jsonResponse(200, pageResponse([rawQuestion])))
     vi.stubGlobal('fetch', fetchSpy)
     seedAdminSession()
@@ -275,7 +275,13 @@ describe('QuestionListPage', () => {
     renderQuestionListPage()
     await waitFor(() => expect(screen.getByText('He has lived here _____ 2010.')).toBeDefined())
 
-    fireEvent.click(screen.getByRole('link', { name: /상세보기/ }))
+    expect(screen.queryByText('상세보기')).toBeNull()
+    expect(screen.queryByRole('columnheader', { name: '상세' })).toBeNull()
+
+    const detailLink = screen.getByRole('link', { name: 'He has lived here _____ 2010.' })
+    expect(detailLink.getAttribute('href')).toBe('/admin/questions/1024')
+
+    fireEvent.click(detailLink)
 
     expect(screen.getByText('Question detail landing')).toBeDefined()
   })
