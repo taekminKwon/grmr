@@ -1,0 +1,43 @@
+.forbidden-page {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background-color: var(--color-background);
+}
+
+.forbidden-card {
+  display: flex;
+  width: 100%;
+  max-width: 24rem;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  text-align: center;
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.forbidden-card h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--color-primary);
+}
+
+.forbidden-message {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.forbidden-link {
+  margin-top: var(--space-2);
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .forbidden-card {
+    padding: var(--space-5);
+  }
+}

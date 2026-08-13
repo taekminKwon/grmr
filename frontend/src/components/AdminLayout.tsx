@@ -6,9 +6,9 @@ import './AdminLayout.css'
 
 type AdminNavKey = 'dashboard' | 'questions'
 
-const NAV_ITEMS: { key: AdminNavKey; label: string; to: string }[] = [
+const NAV_ITEMS: { key: AdminNavKey; label: string; to: string; adminOnly?: boolean }[] = [
   { key: 'dashboard', label: 'Dashboard', to: '/admin' },
-  { key: 'questions', label: 'Questions', to: '/admin/questions' },
+  { key: 'questions', label: 'Questions', to: '/admin/questions', adminOnly: true },
 ]
 
 const COMING_SOON_NAV_ITEMS = ['Assignments', 'Students', 'Study Records']
@@ -21,6 +21,9 @@ function AdminLayout({ active, children }: { active: AdminNavKey; children: Reac
     return null
   }
 
+  const isAdmin = session.user.role === 'ADMIN'
+  const visibleNavItems = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin)
+
   function handleLogout() {
     logout()
     navigate('/login', { replace: true })
@@ -32,7 +35,7 @@ function AdminLayout({ active, children }: { active: AdminNavKey; children: Reac
         <p className="admin-brand">Grammar Lab</p>
 
         <ul className="admin-nav">
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <li key={item.key}>
               <Link
                 className="admin-nav-link"

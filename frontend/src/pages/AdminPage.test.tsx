@@ -16,6 +16,13 @@ function seedAdminSession() {
   )
 }
 
+function seedStudentSession() {
+  sessionStorage.setItem(
+    'grmr.auth.session',
+    JSON.stringify({ accessToken: 'access-token', user: { name: '김학생', role: 'STUDENT' } }),
+  )
+}
+
 function renderAdminPage() {
   render(
     <AuthProvider>
@@ -54,6 +61,13 @@ describe('AdminPage', () => {
     const questionsLink = screen.getByRole('link', { name: 'Questions' })
     expect(questionsLink.getAttribute('href')).toBe('/admin/questions')
     expect(questionsLink.getAttribute('aria-current')).toBeNull()
+  })
+
+  it('hides the Question list navigation item for a STUDENT session', () => {
+    seedStudentSession()
+    renderAdminPage()
+
+    expect(screen.queryByRole('link', { name: 'Questions' })).toBeNull()
   })
 
   it('lists the remaining navigation items as non-interactive and marked coming soon', () => {

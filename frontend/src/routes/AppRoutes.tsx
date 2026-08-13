@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
 import LoginPage from '../pages/LoginPage'
+import QuestionCreatePage from '../pages/QuestionCreatePage'
 import QuestionListPage from '../pages/QuestionListPage'
 import ProtectedRoute from './ProtectedRoute'
 
@@ -11,6 +12,10 @@ function AppRoutes() {
       <Route
         path="/admin"
         element={
+          // Session-only, not ADMIN-gated: login (see LoginPage) already rejects
+          // non-ADMIN accounts, so every reachable session here is an admin
+          // session. Explicit role-gating is reserved for Question management,
+          // which this correction scopes to.
           <ProtectedRoute>
             <AdminPage />
           </ProtectedRoute>
@@ -19,8 +24,16 @@ function AppRoutes() {
       <Route
         path="/admin/questions"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRole="ADMIN">
             <QuestionListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/questions/new"
+        element={
+          <ProtectedRoute requiredRole="ADMIN">
+            <QuestionCreatePage />
           </ProtectedRoute>
         }
       />

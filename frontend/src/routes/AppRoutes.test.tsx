@@ -34,6 +34,13 @@ function seedAdminSession() {
   )
 }
 
+function seedStudentSession() {
+  sessionStorage.setItem(
+    'grmr.auth.session',
+    JSON.stringify({ accessToken: 'access-token', user: { name: '김학생', role: 'STUDENT' } }),
+  )
+}
+
 describe('AppRoutes', () => {
   it('renders the login page at /login', () => {
     renderAt('/login')
@@ -97,5 +104,59 @@ describe('AppRoutes', () => {
 
     expect(screen.getByRole('heading', { name: '문제 관리' })).toBeDefined()
     await waitFor(() => expect(screen.getByText('조건에 맞는 문제가 없습니다.')).toBeDefined())
+  })
+
+  it('renders a forbidden state for an authenticated STUDENT at /admin/questions', () => {
+    seedStudentSession()
+
+    renderAt('/admin/questions')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '문제 관리' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /admin/questions when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/admin/questions')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
+
+  it('redirects unauthenticated access to /admin/questions/new back to /login', () => {
+    renderAt('/admin/questions/new')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the Question create form for an authenticated admin at /admin/questions/new', () => {
+    seedAdminSession()
+
+    renderAt('/admin/questions/new')
+
+    expect(screen.getByRole('heading', { name: '문제 추가' })).toBeDefined()
+  })
+
+  it('renders a forbidden state for an authenticated STUDENT at /admin/questions/new', () => {
+    seedStudentSession()
+
+    renderAt('/admin/questions/new')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '문제 추가' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /admin/questions/new when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/admin/questions/new')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
   })
 })
