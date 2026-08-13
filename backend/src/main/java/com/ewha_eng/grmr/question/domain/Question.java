@@ -136,6 +136,15 @@ public class Question {
         return this.answer.equals(submitted);
     }
 
+    public void validateAvailableForPractice() {
+        if (!isActive()) {
+            throw new QuestionNotInUseException("사용 중인 문제만 풀 수 있습니다.");
+        }
+        if (type != QuestionType.MULTIPLE_CHOICE) {
+            throw new QuestionTypeNotSupportedException("객관식 문제만 풀 수 있습니다.");
+        }
+    }
+
     public void activate() {
         this.status = QuestionStatus.ACTIVE;
     }
