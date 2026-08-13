@@ -5,6 +5,7 @@ import QuestionCreatePage from '../pages/QuestionCreatePage'
 import QuestionDetailPage from '../pages/QuestionDetailPage'
 import QuestionListPage from '../pages/QuestionListPage'
 import StudentPage from '../pages/StudentPage'
+import StudentPracticePage from '../pages/StudentPracticePage'
 import ProtectedRoute from './ProtectedRoute'
 
 function AppRoutes() {
@@ -48,6 +49,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="STUDENT">
             <StudentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/practice"
+        element={
+          <ProtectedRoute requiredRole="STUDENT">
+            <StudentPracticePage />
           </ProtectedRoute>
         }
       />

@@ -1,12 +1,18 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useAuth } from '../auth/useAuth'
 import Button from './Button'
 import './StudentLayout.css'
 
-const COMING_SOON_NAV_ITEMS = ['Practice', 'My Study']
+type StudentNavKey = 'practice'
 
-function StudentLayout({ children }: { children: ReactNode }) {
+const NAV_ITEMS: { key: StudentNavKey; label: string; to: string }[] = [
+  { key: 'practice', label: 'Practice', to: '/student/practice' },
+]
+
+const COMING_SOON_NAV_ITEMS = ['My Study']
+
+function StudentLayout({ active, children }: { active?: StudentNavKey; children: ReactNode }) {
   const { session, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -25,6 +31,17 @@ function StudentLayout({ children }: { children: ReactNode }) {
         <p className="student-brand">Grammar Lab</p>
 
         <ul className="student-nav">
+          {NAV_ITEMS.map((item) => (
+            <li key={item.key}>
+              <Link
+                className="student-nav-link"
+                to={item.to}
+                aria-current={item.key === active ? 'page' : undefined}
+              >
+                {item.label}
+              </Link>
+            </li>
+          ))}
           {COMING_SOON_NAV_ITEMS.map((item) => (
             <li key={item} className="student-nav-item-disabled" aria-disabled="true">
               <span>{item}</span>

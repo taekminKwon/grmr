@@ -38,16 +38,17 @@ describe('StudentPage', () => {
     expect(screen.getByText('김학생')).toBeDefined()
   })
 
-  it('lists Practice and My Study as non-interactive, coming-soon placeholders', () => {
+  it('links Practice to /student/practice while My Study stays a coming-soon placeholder', () => {
     seedStudentSession()
     renderStudentPage()
 
-    for (const label of ['Practice', 'My Study']) {
-      expect(screen.queryByRole('link', { name: label })).toBeNull()
-      expect(screen.queryByRole('button', { name: label })).toBeNull()
-      expect(screen.getByText(label)).toBeDefined()
-    }
-    expect(screen.getAllByText('Coming soon')).toHaveLength(2)
+    const practiceLink = screen.getByRole('link', { name: 'Practice' })
+    expect(practiceLink.getAttribute('href')).toBe('/student/practice')
+
+    expect(screen.queryByRole('link', { name: 'My Study' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'My Study' })).toBeNull()
+    expect(screen.getByText('My Study')).toBeDefined()
+    expect(screen.getAllByText('Coming soon')).toHaveLength(1)
   })
 
   it('logs out, clears the session, and returns to /login', () => {
