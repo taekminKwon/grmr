@@ -53,6 +53,20 @@ public class QuestionRepositoryImpl implements QuestionRepositoryCustom {
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
 
+    @Override
+    public List<Question> findActiveMultipleChoice(String category, QuestionLevel level) {
+        BooleanBuilder predicate = new BooleanBuilder()
+            .and(categoryEq(category))
+            .and(levelEq(level))
+            .and(question.type.eq(QuestionType.MULTIPLE_CHOICE))
+            .and(question.status.eq(QuestionStatus.ACTIVE));
+
+        return queryFactory
+            .selectFrom(question)
+            .where(predicate)
+            .fetch();
+    }
+
     private BooleanExpression categoryEq(String category) {
         return StringUtils.hasText(category) ? question.category.eq(category) : null;
     }

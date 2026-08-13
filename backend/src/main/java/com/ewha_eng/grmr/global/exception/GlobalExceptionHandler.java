@@ -5,6 +5,7 @@ import com.ewha_eng.grmr.auth.domain.InvalidRefreshTokenException;
 import com.ewha_eng.grmr.question.domain.GptGenerationFailedException;
 import com.ewha_eng.grmr.question.domain.InvalidQuestionException;
 import com.ewha_eng.grmr.question.domain.InvalidStatusTransitionException;
+import com.ewha_eng.grmr.question.domain.NoQuestionAvailableException;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -54,5 +55,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleGptGenerationFailed(GptGenerationFailedException e) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
             .body(new ErrorResponse("GPT_GENERATION_FAILED", e.getMessage()));
+    }
+
+    @ExceptionHandler(NoQuestionAvailableException.class)
+    public ResponseEntity<ErrorResponse> handleNoQuestionAvailable(NoQuestionAvailableException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ErrorResponse("NO_QUESTION_AVAILABLE", e.getMessage()));
     }
 }

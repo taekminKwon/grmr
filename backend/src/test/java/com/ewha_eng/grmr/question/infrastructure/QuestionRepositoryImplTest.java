@@ -125,6 +125,46 @@ class QuestionRepositoryImplTest {
         assertThat(lastPage.isLast()).isTrue();
     }
 
+    @Test
+    void findActiveMultipleChoice_returnsOnlyActiveMultipleChoiceQuestions() {
+        Question activeMultipleChoice = save("현재완료", QuestionType.MULTIPLE_CHOICE, QuestionLevel.BASIC,
+            QuestionStatus.ACTIVE, "정답을 고르는 문제", LocalDateTime.now());
+        save("현재완료", QuestionType.FILL_IN_BLANK, QuestionLevel.BASIC, QuestionStatus.ACTIVE,
+            "빈칸 문제", LocalDateTime.now());
+        save("현재완료", QuestionType.MULTIPLE_CHOICE, QuestionLevel.BASIC, QuestionStatus.DRAFT,
+            "초안 문제", LocalDateTime.now());
+        save("현재완료", QuestionType.MULTIPLE_CHOICE, QuestionLevel.BASIC, QuestionStatus.INACTIVE,
+            "사용 중지 문제", LocalDateTime.now());
+
+        List<Question> result = questionRepository.findActiveMultipleChoice(null, null);
+
+        assertThat(result).extracting(Question::getId).containsExactly(activeMultipleChoice.getId());
+    }
+
+    @Test
+    void findActiveMultipleChoice_filtersByCategoryAndLevel_whenProvided() {
+        Question matching = save("현재완료", QuestionType.MULTIPLE_CHOICE, QuestionLevel.INTERMEDIATE,
+            QuestionStatus.ACTIVE, "일치하는 문제", LocalDateTime.now());
+        save("관계대명사", QuestionType.MULTIPLE_CHOICE, QuestionLevel.INTERMEDIATE, QuestionStatus.ACTIVE,
+            "다른 카테고리 문제", LocalDateTime.now());
+        save("현재완료", QuestionType.MULTIPLE_CHOICE, QuestionLevel.ADVANCED, QuestionStatus.ACTIVE,
+            "다른 난이도 문제", LocalDateTime.now());
+
+        List<Question> result = questionRepository.findActiveMultipleChoice("현재완료", QuestionLevel.INTERMEDIATE);
+
+        assertThat(result).extracting(Question::getId).containsExactly(matching.getId());
+    }
+
+    @Test
+    void findActiveMultipleChoice_returnsEmptyList_whenNoQuestionMatches() {
+        save("현재완료", QuestionType.FILL_IN_BLANK, QuestionLevel.BASIC, QuestionStatus.ACTIVE,
+            "빈칸 문제", LocalDateTime.now());
+
+        List<Question> result = questionRepository.findActiveMultipleChoice(null, null);
+
+        assertThat(result).isEmpty();
+    }
+
     private Question save(String category, QuestionType type, QuestionLevel level, QuestionStatus status,
         String text, LocalDateTime createdAt) {
         Question question = Question.builder()
