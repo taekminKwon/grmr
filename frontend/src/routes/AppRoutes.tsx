@@ -4,6 +4,7 @@ import LoginPage from '../pages/LoginPage'
 import QuestionCreatePage from '../pages/QuestionCreatePage'
 import QuestionDetailPage from '../pages/QuestionDetailPage'
 import QuestionListPage from '../pages/QuestionListPage'
+import StudentPage from '../pages/StudentPage'
 import ProtectedRoute from './ProtectedRoute'
 
 function AppRoutes() {
@@ -13,11 +14,7 @@ function AppRoutes() {
       <Route
         path="/admin"
         element={
-          // Session-only, not ADMIN-gated: login (see LoginPage) already rejects
-          // non-ADMIN accounts, so every reachable session here is an admin
-          // session. Explicit role-gating is reserved for Question management,
-          // which this correction scopes to.
-          <ProtectedRoute>
+          <ProtectedRoute requiredRole="ADMIN">
             <AdminPage />
           </ProtectedRoute>
         }
@@ -43,6 +40,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="ADMIN">
             <QuestionDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student"
+        element={
+          <ProtectedRoute requiredRole="STUDENT">
+            <StudentPage />
           </ProtectedRoute>
         }
       />

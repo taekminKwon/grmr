@@ -1,0 +1,112 @@
+.student-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-background);
+}
+
+.student-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 16rem;
+  flex-shrink: 0;
+  padding: var(--space-5) var(--space-4);
+  background-color: var(--color-white);
+  border-right: 1px solid var(--color-border);
+}
+
+.student-brand {
+  margin: 0 0 var(--space-6);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.student-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.student-nav-item-disabled {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0.625rem var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.student-nav-badge {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  padding: 0.125rem 0.5rem;
+  white-space: nowrap;
+}
+
+.student-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.student-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background-color: var(--color-white);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.student-user {
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.student-user-name {
+  font-weight: 600;
+}
+
+.student-content {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-6);
+}
+
+@media (max-width: 720px) {
+  .student-shell {
+    flex-direction: column;
+  }
+
+  .student-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .student-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .student-header {
+    justify-content: space-between;
+    padding: var(--space-4);
+  }
+
+  .student-content {
+    padding: var(--space-4);
+  }
+}

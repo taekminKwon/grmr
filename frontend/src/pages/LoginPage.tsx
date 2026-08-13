@@ -6,8 +6,13 @@ import { useAuth } from '../auth/useAuth'
 import Button from '../components/Button'
 import './LoginPage.css'
 
-const NON_ADMIN_MESSAGE = '관리자 계정으로만 로그인할 수 있습니다.'
+const INVALID_ROLE_MESSAGE = '알 수 없는 계정 유형입니다. 관리자에게 문의해주세요.'
 const UNEXPECTED_ERROR_MESSAGE = '로그인에 실패했습니다. 잠시 후 다시 시도해주세요.'
+
+const ROLE_HOME_PATH: Record<string, string> = {
+  ADMIN: '/admin',
+  STUDENT: '/student',
+}
 
 function LoginPage() {
   const [loginId, setLoginId] = useState('')
@@ -30,9 +35,10 @@ function LoginPage() {
 
     try {
       const response = await loginRequest({ loginId, password })
+      const destination = ROLE_HOME_PATH[response.role]
 
-      if (response.role !== 'ADMIN') {
-        setError(NON_ADMIN_MESSAGE)
+      if (!destination) {
+        setError(INVALID_ROLE_MESSAGE)
         return
       }
 
@@ -40,7 +46,7 @@ function LoginPage() {
         accessToken: response.accessToken,
         user: { name: response.name, role: response.role },
       })
-      navigate('/admin', { replace: true })
+      navigate(destination, { replace: true })
     } catch (err) {
       setError(err instanceof LoginError ? err.message : UNEXPECTED_ERROR_MESSAGE)
     } finally {
@@ -56,7 +62,7 @@ function LoginPage() {
 
         <form className="login-form" onSubmit={handleSubmit} noValidate>
           <h1>Sign in</h1>
-          <p className="login-subtitle">관리자 계정으로 로그인하세요.</p>
+          <p className="login-subtitle">아이디와 비밀번호로 로그인하세요.</p>
 
           <div className="login-field">
             <label htmlFor="loginId">Login ID</label>

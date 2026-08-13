@@ -17,6 +17,7 @@ function renderLoginPage() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/admin" element={<div>Admin landing</div>} />
+          <Route path="/student" element={<div>Student landing</div>} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>,
@@ -43,6 +44,15 @@ const adminResponse = {
   expiresIn: 3600,
   role: 'ADMIN',
   name: '권태민',
+}
+
+const studentResponse = {
+  accessToken: 'access-token',
+  refreshToken: 'refresh-token-secret',
+  tokenType: 'Bearer',
+  expiresIn: 3600,
+  role: 'STUDENT',
+  name: '김학생',
 }
 
 describe('LoginPage', () => {
@@ -154,5 +164,36 @@ describe('LoginPage', () => {
     expect(stored).not.toContain('refresh-token-secret')
     const parsed = JSON.parse(stored as string)
     expect(parsed).toEqual({ accessToken: 'access-token', user: { name: '권태민', role: 'ADMIN' } })
+  })
+
+  it('navigates to /student and stores only the access token and user on STUDENT success', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, studentResponse)))
+
+    renderLoginPage()
+    await fillAndSubmit('student01', 'password123!')
+
+    await waitFor(() => expect(screen.getByText('Student landing')).toBeDefined())
+
+    const stored = sessionStorage.getItem('grmr.auth.session')
+    expect(stored).not.toBeNull()
+    expect(stored).not.toContain('refresh-token-secret')
+    const parsed = JSON.parse(stored as string)
+    expect(parsed).toEqual({ accessToken: 'access-token', user: { name: '김학생', role: 'STUDENT' } })
+  })
+
+  it('shows an error and stays on the login page when the server reports an unrecognized role', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse(200, { ...adminResponse, role: 'BOGUS' })),
+    )
+
+    renderLoginPage()
+    await fillAndSubmit('someone', 'password123!')
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toBe('알 수 없는 계정 유형입니다. 관리자에게 문의해주세요.'),
+    )
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+    expect(sessionStorage.getItem('grmr.auth.session')).toBeNull()
   })
 })

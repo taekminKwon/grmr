@@ -85,6 +85,71 @@ describe('AppRoutes', () => {
     expect(sessionStorage.getItem('grmr.auth.session')).toBeNull()
   })
 
+  it('renders a forbidden state for an authenticated STUDENT at /admin', () => {
+    seedStudentSession()
+
+    renderAt('/admin')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: 'Admin' })).toBeNull()
+  })
+
+  it('redirects unauthenticated access to /student back to /login', () => {
+    renderAt('/student')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('restores the session from sessionStorage and shows the student landing page', () => {
+    seedStudentSession()
+
+    renderAt('/student')
+
+    expect(screen.getByRole('heading', { name: 'Student' })).toBeDefined()
+    expect(screen.getByText('김학생님, 환영합니다.')).toBeDefined()
+  })
+
+  it('renders a forbidden state for an authenticated ADMIN at /student', () => {
+    seedAdminSession()
+
+    renderAt('/student')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: 'Student' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /student when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/student')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
+
+  it('shows Practice and My Study as coming-soon placeholders for a STUDENT, with no admin navigation', () => {
+    seedStudentSession()
+
+    renderAt('/student')
+
+    expect(screen.getByText('Practice')).toBeDefined()
+    expect(screen.getByText('My Study')).toBeDefined()
+    expect(screen.getAllByText('Coming soon')).toHaveLength(2)
+    expect(screen.queryByRole('link', { name: 'Questions' })).toBeNull()
+  })
+
+  it('logs out from the student shell, clears the session, and returns to /login', () => {
+    seedStudentSession()
+
+    renderAt('/student')
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+    expect(sessionStorage.getItem('grmr.auth.session')).toBeNull()
+  })
+
   it('redirects unauthenticated access to /admin/questions back to /login', () => {
     renderAt('/admin/questions')
 
