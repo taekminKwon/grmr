@@ -16,12 +16,10 @@ import org.testcontainers.utility.DockerImageName;
 
 /**
  * Requires a local Docker daemon to pull and start the redis:7-alpine image via Testcontainers.
- * Could not be executed in the sandbox this was written in (no Docker daemon available there) —
- * run it locally once Docker is running to confirm it's actually green.
  */
 @Tag("integration")
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest
 class RedisRefreshTokenRepositoryTest {
 
     @Container
