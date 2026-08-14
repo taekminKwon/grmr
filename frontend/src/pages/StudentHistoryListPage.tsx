@@ -208,7 +208,11 @@ function StudentHistoryListPage() {
                       </td>
                       <td>{formatKoreanDateTime(item.submittedAt)}</td>
                       <td className="history-table-text">
-                        <Link className="history-table-text-link" to={`/student/history/${item.id}`}>
+                        <Link
+                          className="history-table-text-link"
+                          to={`/student/history/${item.id}`}
+                          title={item.text}
+                        >
                           {item.text}
                         </Link>
                       </td>
