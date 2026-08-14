@@ -46,6 +46,7 @@ const rawRecord = {
   level: '심화',
   correct: true,
   submittedAt: '2026-08-13T10:15:00',
+  text: 'If I _____ you, I would study harder.',
 }
 
 function pageResponse(content: unknown[], overrides: Partial<Record<string, unknown>> = {}) {
@@ -77,7 +78,7 @@ describe('StudentHistoryListPage', () => {
     expect(row.getByText('가정법')).toBeDefined()
     expect(row.getByText('심화')).toBeDefined()
     expect(row.getByText('정답')).toBeDefined()
-    expect(row.getByText('2026-08-13T10:15:00')).toBeDefined()
+    expect(row.getByText('2026년 8월 13일 10:15')).toBeDefined()
   })
 
   it('shows a loading indicator while the request is in flight', async () => {
@@ -226,7 +227,7 @@ describe('StudentHistoryListPage', () => {
     expect(screen.queryByRole('button', { name: '다시 로그인' })).toBeNull()
   })
 
-  it('links each row to its detail page', async () => {
+  it('links each row to its detail page via the problem-text link, with no separate 상세 column', async () => {
     const fetchSpy = vi.fn().mockResolvedValue(jsonResponse(200, pageResponse([rawRecord])))
     vi.stubGlobal('fetch', fetchSpy)
     seedStudentSession()
@@ -234,7 +235,10 @@ describe('StudentHistoryListPage', () => {
     renderHistoryListPage()
     await waitFor(() => expect(screen.getByText('가정법')).toBeDefined())
 
-    const detailLink = screen.getByRole('link', { name: '상세보기' })
+    expect(screen.queryByText('상세보기')).toBeNull()
+    expect(screen.queryByRole('columnheader', { name: '상세' })).toBeNull()
+
+    const detailLink = screen.getByRole('link', { name: 'If I _____ you, I would study harder.' })
     expect(detailLink.getAttribute('href')).toBe('/student/history/501')
 
     fireEvent.click(detailLink)

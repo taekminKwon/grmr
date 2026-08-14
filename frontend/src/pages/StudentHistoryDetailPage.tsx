@@ -6,6 +6,7 @@ import { QUESTION_LEVEL_LABELS } from '../api/questionTypes'
 import { useAuth } from '../auth/useAuth'
 import StudentLayout from '../components/StudentLayout'
 import Button from '../components/Button'
+import { formatKoreanDateTime } from '../utils/formatDateTime'
 import './StudentHistoryDetailPage.css'
 
 const GENERIC_ERROR_MESSAGE = '학습 기록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'
@@ -175,7 +176,7 @@ function StudentHistoryDetailPage() {
               </div>
               <div>
                 <dt>제출 시각</dt>
-                <dd>{currentResult.record.submittedAt}</dd>
+                <dd>{formatKoreanDateTime(currentResult.record.submittedAt)}</dd>
               </div>
             </dl>
 

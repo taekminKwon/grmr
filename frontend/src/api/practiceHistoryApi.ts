@@ -35,6 +35,7 @@ type RawStudyRecordSummary = {
   level: string
   correct: boolean
   submittedAt: string
+  text: string
 }
 
 type RawStudyRecordQuestionSnapshot = {
@@ -73,6 +74,7 @@ function parseStudyRecordSummary(raw: RawStudyRecordSummary): StudyRecordSummary
     level: questionLevelFromLabel(raw.level),
     correct: raw.correct,
     submittedAt: raw.submittedAt,
+    text: raw.text,
   }
 }
 

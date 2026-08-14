@@ -7,6 +7,7 @@ import { QUESTION_LEVEL_LABELS } from '../api/questionTypes'
 import { useAuth } from '../auth/useAuth'
 import StudentLayout from '../components/StudentLayout'
 import Button from '../components/Button'
+import { formatKoreanDateTime } from '../utils/formatDateTime'
 import './StudentHistoryListPage.css'
 
 const PAGE_SIZE = 20
@@ -190,7 +191,7 @@ function StudentHistoryListPage() {
                     <th scope="col">난이도</th>
                     <th scope="col">결과</th>
                     <th scope="col">제출 시각</th>
-                    <th scope="col">상세</th>
+                    <th scope="col">문제 내용</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -205,10 +206,10 @@ function StudentHistoryListPage() {
                           {item.correct ? '정답' : '오답'}
                         </span>
                       </td>
-                      <td>{item.submittedAt}</td>
-                      <td>
-                        <Link className="history-table-detail-link" to={`/student/history/${item.id}`}>
-                          상세보기
+                      <td>{formatKoreanDateTime(item.submittedAt)}</td>
+                      <td className="history-table-text">
+                        <Link className="history-table-text-link" to={`/student/history/${item.id}`}>
+                          {item.text}
                         </Link>
                       </td>
                     </tr>

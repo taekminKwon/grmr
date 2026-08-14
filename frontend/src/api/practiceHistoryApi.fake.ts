@@ -113,6 +113,7 @@ function toSummary(record: StudyRecordDetail): StudyRecordSummary {
     level: record.question.level,
     correct: record.correct,
     submittedAt: record.submittedAt,
+    text: record.question.text,
   }
 }
 

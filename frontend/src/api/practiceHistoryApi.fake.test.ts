@@ -19,6 +19,7 @@ describe('createFakeHistoryApi.listRecords', () => {
       level: 'ADVANCED',
       correct: false,
       submittedAt: '2026-08-13T10:16:00',
+      text: 'If I _____ you, I would study harder.',
     })
     expect(result.content[0]).not.toHaveProperty('question')
   })

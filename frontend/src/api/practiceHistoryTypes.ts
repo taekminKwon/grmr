@@ -7,8 +7,10 @@ import type { QuestionLevel } from './questionTypes'
 // Phase 2 only ever produces PRACTICE records (no Assignment feature yet).
 export type StudyRecordType = 'PRACTICE'
 
-// List item: summary fields only. The submission-time question snapshot
-// (text/choices/correctAnswer/explanation) is only available on the detail response.
+// List item: summary fields plus the immutable submitted-time question
+// snapshot's `text`, so the list can link each row to its detail page by
+// problem text. The rest of the snapshot (choices/correctAnswer/explanation)
+// is only available on the detail response.
 export type StudyRecordSummary = {
   id: number
   questionId: number
@@ -17,6 +19,7 @@ export type StudyRecordSummary = {
   level: QuestionLevel
   correct: boolean
   submittedAt: string
+  text: string
 }
 
 // Immutable submission-time snapshot of the question. Never reflects later

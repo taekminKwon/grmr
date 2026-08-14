@@ -17,7 +17,16 @@ const ACCESS_TOKEN = 'access-token-abc'
 function listResponse(): Response {
   return jsonResponse(200, {
     content: [
-      { id: 501, questionId: 1021, type: 'PRACTICE', category: '가정법', level: '심화', correct: true, submittedAt: '2026-08-13T10:15:00' },
+      {
+        id: 501,
+        questionId: 1021,
+        type: 'PRACTICE',
+        category: '가정법',
+        level: '심화',
+        correct: true,
+        submittedAt: '2026-08-13T10:15:00',
+        text: 'If I _____ you, I would study harder.',
+      },
     ],
     page: 0,
     size: 20,
@@ -103,6 +112,7 @@ describe('historyApi.listRecords', () => {
           level: 'ADVANCED',
           correct: true,
           submittedAt: '2026-08-13T10:15:00',
+          text: 'If I _____ you, I would study harder.',
         },
       ],
       page: 0,

@@ -137,17 +137,23 @@
   background-color: var(--color-danger-soft);
 }
 
-.history-table-detail-link {
-  color: var(--color-primary);
-  font-weight: 600;
+.history-table-text {
+  max-width: 28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-table-text-link {
+  color: inherit;
   text-decoration: none;
 }
 
-.history-table-detail-link:hover {
+.history-table-text-link:hover {
   text-decoration: underline;
 }
 
-.history-table-detail-link:focus-visible {
+.history-table-text-link:focus-visible {
   outline: none;
   border-radius: var(--radius-sm);
   box-shadow: var(--focus-ring);

@@ -72,7 +72,7 @@ describe('StudentHistoryDetailPage', () => {
     expect(screen.getByText('가정법')).toBeDefined()
     expect(screen.getByText('심화')).toBeDefined()
     expect(screen.getByText('오답')).toBeDefined()
-    expect(screen.getByText('2026-08-13T10:15:00')).toBeDefined()
+    expect(screen.getByText('2026년 8월 13일 10:15')).toBeDefined()
     expect(screen.getByText('가정법 과거에서는 주어의 인칭에 관계없이 be동사로 were를 씁니다.')).toBeDefined()
 
     const choiceList = within(screen.getByRole('list', { name: '보기' }))
