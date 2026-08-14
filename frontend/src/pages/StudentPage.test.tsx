@@ -38,17 +38,15 @@ describe('StudentPage', () => {
     expect(screen.getByText('김학생')).toBeDefined()
   })
 
-  it('links Practice to /student/practice while My Study stays a coming-soon placeholder', () => {
+  it('links Practice to /student/practice and My Study to /student/history', () => {
     seedStudentSession()
     renderStudentPage()
 
     const practiceLink = screen.getByRole('link', { name: 'Practice' })
     expect(practiceLink.getAttribute('href')).toBe('/student/practice')
 
-    expect(screen.queryByRole('link', { name: 'My Study' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'My Study' })).toBeNull()
-    expect(screen.getByText('My Study')).toBeDefined()
-    expect(screen.getAllByText('Coming soon')).toHaveLength(1)
+    const historyLink = screen.getByRole('link', { name: 'My Study' })
+    expect(historyLink.getAttribute('href')).toBe('/student/history')
   })
 
   it('logs out, clears the session, and returns to /login', () => {

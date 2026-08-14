@@ -129,14 +129,13 @@ describe('AppRoutes', () => {
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
   })
 
-  it('shows Practice linked to /student/practice and My Study as coming-soon for a STUDENT, with no admin navigation', () => {
+  it('shows Practice and My Study links for a STUDENT, with no admin navigation', () => {
     seedStudentSession()
 
     renderAt('/student')
 
     expect(screen.getByRole('link', { name: 'Practice' }).getAttribute('href')).toBe('/student/practice')
-    expect(screen.getByText('My Study')).toBeDefined()
-    expect(screen.getAllByText('Coming soon')).toHaveLength(1)
+    expect(screen.getByRole('link', { name: 'My Study' }).getAttribute('href')).toBe('/student/history')
     expect(screen.queryByRole('link', { name: 'Questions' })).toBeNull()
   })
 
@@ -321,6 +320,103 @@ describe('AppRoutes', () => {
     )
 
     renderAt('/student/practice')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
+
+  it('redirects unauthenticated access to /student/history back to /login', () => {
+    renderAt('/student/history')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the history list for an authenticated STUDENT at /student/history', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 }),
+      ),
+    )
+    seedStudentSession()
+
+    renderAt('/student/history')
+
+    expect(screen.getByRole('heading', { name: 'My Study' })).toBeDefined()
+    await waitFor(() => expect(screen.getByText('학습 기록이 없습니다.')).toBeDefined())
+  })
+
+  it('renders a forbidden state for an authenticated ADMIN at /student/history', () => {
+    seedAdminSession()
+
+    renderAt('/student/history')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: 'My Study' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /student/history when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/student/history')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
+
+  it('redirects unauthenticated access to /student/history/:id back to /login', () => {
+    renderAt('/student/history/501')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the history detail for an authenticated STUDENT at /student/history/:id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, {
+          id: 501,
+          questionId: 1021,
+          type: 'PRACTICE',
+          question: {
+            category: '가정법',
+            level: '심화',
+            text: 'If I _____ you, I would study harder.',
+            choices: ['am', 'was', 'were', 'be'],
+            correctAnswer: 'were',
+            explanation: '가정법 과거에서는 주어의 인칭에 관계없이 be동사로 were를 씁니다.',
+          },
+          submittedAnswer: 'were',
+          correct: true,
+          submittedAt: '2026-08-13T10:15:00',
+        }),
+      ),
+    )
+    seedStudentSession()
+
+    renderAt('/student/history/501')
+
+    expect(screen.getByRole('heading', { name: '학습 기록 상세' })).toBeDefined()
+    await waitFor(() => expect(screen.getByText('If I _____ you, I would study harder.')).toBeDefined())
+  })
+
+  it('renders a forbidden state for an authenticated ADMIN at /student/history/:id', () => {
+    seedAdminSession()
+
+    renderAt('/student/history/501')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '학습 기록 상세' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /student/history/:id when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/student/history/501')
 
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
   })

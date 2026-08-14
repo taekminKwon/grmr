@@ -4,13 +4,12 @@ import { useAuth } from '../auth/useAuth'
 import Button from './Button'
 import './StudentLayout.css'
 
-type StudentNavKey = 'practice'
+type StudentNavKey = 'practice' | 'history'
 
 const NAV_ITEMS: { key: StudentNavKey; label: string; to: string }[] = [
   { key: 'practice', label: 'Practice', to: '/student/practice' },
+  { key: 'history', label: 'My Study', to: '/student/history' },
 ]
-
-const COMING_SOON_NAV_ITEMS = ['My Study']
 
 function StudentLayout({ active, children }: { active?: StudentNavKey; children: ReactNode }) {
   const { session, logout } = useAuth()
@@ -40,12 +39,6 @@ function StudentLayout({ active, children }: { active?: StudentNavKey; children:
               >
                 {item.label}
               </Link>
-            </li>
-          ))}
-          {COMING_SOON_NAV_ITEMS.map((item) => (
-            <li key={item} className="student-nav-item-disabled" aria-disabled="true">
-              <span>{item}</span>
-              <span className="student-nav-badge">Coming soon</span>
             </li>
           ))}
         </ul>
