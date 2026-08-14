@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -182,6 +184,22 @@ class StudyRecordControllerTest {
                 .content("{\"answer\": \"were\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+        verify(studyRecordService, never()).submitPracticeAnswer(any(), any(), any());
+    }
+
+    @Test
+    void submit_returns400_withInvalidRequestCode_whenQuestionIdIsNonNumeric() throws Exception {
+        authenticateAsStudent(2L);
+
+        mockMvc.perform(post("/api/me/practice/answers")
+                .header("Authorization", "Bearer access-token")
+                .contentType("application/json")
+                .content("{\"questionId\": \"abc\", \"answer\": \"were\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").isNotEmpty());
 
         verify(studyRecordService, never()).submitPracticeAnswer(any(), any(), any());
     }
