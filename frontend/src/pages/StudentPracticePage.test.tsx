@@ -152,7 +152,7 @@ describe('StudentPracticePage', () => {
     const [url, init] = fetchSpy.mock.calls[1]
     expect(url).toBe('/api/me/practice/answers')
     expect(init.method).toBe('POST')
-    expect(JSON.parse(init.body)).toEqual({ questionId: 2001, submittedAnswer: 'since' })
+    expect(JSON.parse(init.body)).toEqual({ questionId: 2001, answer: 'since' })
 
     await waitFor(() => expect(screen.getByRole('status').textContent).toContain('정답입니다!'))
     expect(screen.getByRole('status').textContent).toContain('since')

@@ -86,7 +86,7 @@ describe('practiceApi.getNextQuestion', () => {
 })
 
 describe('practiceApi.submitAnswer', () => {
-  const payload = { questionId: 2001, submittedAnswer: 'since' }
+  const payload = { questionId: 2001, answer: 'since' }
 
   it('POSTs to the answers path with the Bearer header and a JSON body', async () => {
     const fetchSpy = vi.fn().mockResolvedValue(
@@ -137,7 +137,7 @@ describe('practiceApi.submitAnswer', () => {
       ),
     )
 
-    const result = await practiceApi.submitAnswer(ACCESS_TOKEN, { questionId: 2001, submittedAnswer: 'for' })
+    const result = await practiceApi.submitAnswer(ACCESS_TOKEN, { questionId: 2001, answer: 'for' })
 
     expect(result.correct).toBe(false)
     expect(result.correctAnswer).toBe('since')

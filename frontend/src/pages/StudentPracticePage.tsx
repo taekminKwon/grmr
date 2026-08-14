@@ -122,7 +122,7 @@ function StudentPracticePage() {
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const result = await practiceApi.submitAnswer(accessToken, { questionId, submittedAnswer: choice })
+      const result = await practiceApi.submitAnswer(accessToken, { questionId, answer: choice })
       setAnswerResult(result)
     } catch (error) {
       if (error instanceof PracticeApiError && error.status === 401) {
