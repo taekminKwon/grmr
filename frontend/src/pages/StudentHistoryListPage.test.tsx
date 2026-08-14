@@ -240,6 +240,7 @@ describe('StudentHistoryListPage', () => {
 
     const detailLink = screen.getByRole('link', { name: 'If I _____ you, I would study harder.' })
     expect(detailLink.getAttribute('href')).toBe('/student/history/501')
+    expect(detailLink.getAttribute('title')).toBe('If I _____ you, I would study harder.')
 
     fireEvent.click(detailLink)
     expect(screen.getByText('History detail landing')).toBeDefined()

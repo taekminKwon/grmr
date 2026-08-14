@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -33,6 +34,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -228,6 +230,21 @@ class PracticeRecordControllerTest {
     }
 
     @Test
+    void getMyRecords_returns400_withInvalidRequestCode_whenPageIsNonNumeric() throws Exception {
+        authenticateAsStudent(2L);
+
+        mockMvc.perform(get("/api/me/practice/records")
+                .header("Authorization", "Bearer access-token")
+                .param("page", "abc"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").isNotEmpty());
+
+        verify(studyRecordService, never()).getMyPracticeRecords(any(), any(), any());
+    }
+
+    @Test
     void getMyRecords_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
         mockMvc.perform(get("/api/me/practice/records"))
             .andExpect(status().isUnauthorized());
@@ -288,6 +305,20 @@ class PracticeRecordControllerTest {
             .andExpect(status().isOk());
 
         verify(studyRecordService).getMyPracticeRecord(2L, 501L);
+    }
+
+    @Test
+    void getMyRecord_returns400_withInvalidRequestCode_whenIdIsNonNumeric() throws Exception {
+        authenticateAsStudent(2L);
+
+        mockMvc.perform(get("/api/me/practice/records/abc")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").isNotEmpty());
+
+        verify(studyRecordService, never()).getMyPracticeRecord(any(), any());
     }
 
     @Test

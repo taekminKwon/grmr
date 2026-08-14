@@ -10,6 +10,7 @@
   { "content": [], "page": 0, "size": 20, "totalElements": 0, "totalPages": 0 }
   ```
 - 공통 에러 응답: `{ "code": "...", "message": "..." }`
+  - 요청 바디/경로변수/쿼리파라미터의 형식이 올바르지 않은 경우(JSON 파싱 실패, 타입 불일치 등)에도 `400 Bad Request` `{ "code": "INVALID_REQUEST", "message": "..." }`로 응답합니다.
 - 표에서 **필수**는 요청 바디 기준이며, 응답 전용 필드는 필수 열을 비워둡니다.
 - 인증: `/api/auth/**`를 제외한 모든 엔드포인트는 `Authorization: Bearer {accessToken}` 헤더가 필요합니다.
   - 토큰 누락/만료/위조: `401 Unauthorized` — `{ "code": "TOKEN_EXPIRED", "message": "..." }` 또는 `{ "code": "TOKEN_INVALID", "message": "..." }`

@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,12 +25,14 @@ import com.ewha_eng.grmr.question.domain.QuestionNotInUseException;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import com.ewha_eng.grmr.question.domain.QuestionTypeNotSupportedException;
 import com.ewha_eng.grmr.studyrecord.application.StudyRecordService;
+import com.ewha_eng.grmr.studyrecord.domain.InvalidStudyRecordException;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecord;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -187,6 +190,22 @@ class StudyRecordControllerTest {
     }
 
     @Test
+    void submit_returns400_withInvalidRequestCode_whenQuestionIdIsNonNumeric() throws Exception {
+        authenticateAsStudent(2L);
+
+        mockMvc.perform(post("/api/me/practice/answers")
+                .header("Authorization", "Bearer access-token")
+                .contentType("application/json")
+                .content("{\"questionId\": \"abc\", \"answer\": \"were\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").isNotEmpty());
+
+        verify(studyRecordService, never()).submitPracticeAnswer(any(), any(), any());
+    }
+
+    @Test
     void submit_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
         mockMvc.perform(post("/api/me/practice/answers")
                 .contentType("application/json")
@@ -250,6 +269,22 @@ class StudyRecordControllerTest {
                 .content("{\"questionId\": 1024, \"answer\": \"that\"}"))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("QUESTION_TYPE_NOT_SUPPORTED"));
+    }
+
+    @Test
+    void submit_returns400_withInvalidRequestCode_whenStudyRecordIsInvalid() throws Exception {
+        authenticateAsStudent(2L);
+        when(studyRecordService.submitPracticeAnswer(2L, 1021L, "were"))
+            .thenThrow(new InvalidStudyRecordException("학습 기록이 올바르지 않습니다."));
+
+        mockMvc.perform(post("/api/me/practice/answers")
+                .header("Authorization", "Bearer access-token")
+                .contentType("application/json")
+                .content("{\"questionId\": 1021, \"answer\": \"were\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").value("학습 기록이 올바르지 않습니다."));
     }
 
     private void authenticateAsAdmin() {
