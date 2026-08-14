@@ -13,7 +13,7 @@ public record PracticeAnswerRequest(Long questionId, String answer) {
 
     public String toAnswer() {
         if (answer == null || answer.isBlank()) {
-            throw new InvalidRequestException("제출한 답안은 필수입니다.");
+            throw new InvalidRequestException("답안 입력은 필수입니다.");
         }
         return answer;
     }

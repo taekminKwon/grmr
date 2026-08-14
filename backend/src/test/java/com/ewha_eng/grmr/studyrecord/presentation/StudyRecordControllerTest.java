@@ -151,7 +151,23 @@ class StudyRecordControllerTest {
                 .contentType("application/json")
                 .content("{\"questionId\": 1021}"))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").value("답안 입력은 필수입니다."));
+
+        verify(studyRecordService, never()).submitPracticeAnswer(any(), any(), any());
+    }
+
+    @Test
+    void submit_returns400_withInvalidRequestCode_whenAnswerIsBlank() throws Exception {
+        authenticateAsStudent(2L);
+
+        mockMvc.perform(post("/api/me/practice/answers")
+                .header("Authorization", "Bearer access-token")
+                .contentType("application/json")
+                .content("{\"questionId\": 1021, \"answer\": \"   \"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+            .andExpect(jsonPath("$.message").value("답안 입력은 필수입니다."));
 
         verify(studyRecordService, never()).submitPracticeAnswer(any(), any(), any());
     }
