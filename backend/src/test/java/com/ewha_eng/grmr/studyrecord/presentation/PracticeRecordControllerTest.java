@@ -107,12 +107,28 @@ class PracticeRecordControllerTest {
             .andExpect(jsonPath("$.content[0].level").value("심화"))
             .andExpect(jsonPath("$.content[0].correct").value(true))
             .andExpect(jsonPath("$.content[0].submittedAt").exists())
-            .andExpect(jsonPath("$.content[0].text").doesNotExist())
+            .andExpect(jsonPath("$.content[0].text").value("If I _____ you, I would study harder."))
             .andExpect(jsonPath("$.content[0].choices").doesNotExist())
             .andExpect(jsonPath("$.page").value(0))
             .andExpect(jsonPath("$.size").value(20))
             .andExpect(jsonPath("$.totalElements").value(1))
             .andExpect(jsonPath("$.totalPages").value(1));
+    }
+
+    @Test
+    void getMyRecords_returnsSnapshotText_evenAfterQuestionTextChanges() throws Exception {
+        authenticateAsStudent(2L);
+        Member member = student(2L);
+        Question question = activeMultipleChoiceQuestion();
+        StudyRecord record = practiceAttempt(member, question, "were", 501L);
+        question.update(null, null, null, "If I _____ you, I would call you.", null, null, null);
+        Page<StudyRecord> page = new PageImpl<>(List.of(record), PageRequest.of(0, 20), 1);
+        when(studyRecordService.getMyPracticeRecords(eq(2L), isNull(), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/me/practice/records")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[0].text").value("If I _____ you, I would study harder."));
     }
 
     @Test

@@ -133,6 +133,23 @@ class StudyRecordServiceIntegrationTest {
     }
 
     @Test
+    void getMyPracticeRecords_returnsSnapshotText_evenAfterQuestionTextIsLaterUpdated() {
+        Member member = saveStudent("owner09");
+        Question question = saveActiveMultipleChoiceQuestion();
+        StudyRecord saved = studyRecordService.submitPracticeAnswer(member.getId(), question.getId(), "were");
+
+        question.update(null, null, null, "If I _____ you, I would call you.", null, null, null);
+        questionRepository.saveAndFlush(question);
+
+        Page<StudyRecord> page = studyRecordService.getMyPracticeRecords(member.getId(), null,
+            PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).filteredOn(record -> record.getId().equals(saved.getId()))
+            .extracting(StudyRecord::getText)
+            .containsExactly("If I _____ you, I would study harder.");
+    }
+
+    @Test
     void getMyPracticeRecords_filtersByCategory_andReturnsNewestFirst() {
         Member member = saveStudent("owner06");
         Question sinceQuestion = saveQuestionWithCategory("현재완료");

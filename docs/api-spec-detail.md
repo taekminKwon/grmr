@@ -775,16 +775,28 @@
 | `size` | int | | 기본값 20 |
 
 **Response** `200 OK`
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `id` | long | |
+| `questionId` | long | 원본 문제 참조 |
+| `type` | string | 항상 `"PRACTICE"` |
+| `category` | string | |
+| `level` | string | |
+| `correct` | boolean | |
+| `submittedAt` | datetime | |
+| `text` | string | 제출 시점 문제 본문(스냅샷). 원본 `Question`이 이후 수정되어도 값이 바뀌지 않음 |
+
 ```json
 {
   "content": [
-    { "id": 501, "questionId": 1021, "type": "PRACTICE", "category": "가정법", "level": "심화", "correct": true, "submittedAt": "2026-08-13T10:15:00" }
+    { "id": 501, "questionId": 1021, "type": "PRACTICE", "category": "가정법", "level": "심화", "correct": true, "submittedAt": "2026-08-13T10:15:00", "text": "If I _____ you, I would study harder." }
   ],
   "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
 }
 ```
 
-목록 항목은 요약 필드만 포함합니다(`text`/`choices`/정답/해설 제외). 항상 요청한 학생 본인의 기록만 반환합니다(다른 학생의 기록은 조회 결과에 나타나지 않음). 최신 제출이 먼저 오도록 `submittedAt` 내림차순으로 정렬합니다.
+목록 항목은 스냅샷 `text`를 포함하되 `choices`/정답/해설은 제외한 요약 필드로 구성됩니다. 항상 요청한 학생 본인의 기록만 반환합니다(다른 학생의 기록은 조회 결과에 나타나지 않음). 최신 제출이 먼저 오도록 `submittedAt` 내림차순으로 정렬합니다.
 
 ---
 
@@ -848,8 +860,8 @@
 | 7 | 같은 문제 재응시 | 5번 이후 다시 `POST /api/me/practice/answers` `{ "questionId": 1021, "answer": "am" }` | `200`, 새 `id`(5번과 다른 StudyRecord ID)로 별도 기록 생성. 5번 기록은 그대로 유지됨 |
 | 8 | 존재하지 않는 문제 제출 | `POST /api/me/practice/answers` `{ "questionId": 999999, "answer": "were" }` | `404` `QUESTION_NOT_FOUND` |
 | 9 | `초안`/`사용 중지` 문제 제출 | 상태가 `사용 중`이 아닌 `questionId`로 제출 | `409` `QUESTION_NOT_IN_USE` |
-| 10 | 문제 수정 후 기존 기록 스냅샷 불변 확인 | 5번 제출 후 관리자가 `PATCH /api/questions/1021`로 `explanation` 변경 → `GET /api/me/practice/records/{5번 id}` | `200`, `question.explanation`은 제출 당시 값 그대로(수정된 값 아님) |
-| 11 | 본인 기록 목록 | `GET /api/me/practice/records` | `200`, `content`에 5·6·7번에서 생성된 기록만 포함(다른 학생 기록 없음) |
+| 10 | 문제 수정 후 기존 기록 스냅샷 불변 확인 | 5번 제출 후 관리자가 `PATCH /api/questions/1021`로 `text`/`explanation` 변경 → `GET /api/me/practice/records/{5번 id}`, `GET /api/me/practice/records` | `200`, `question.explanation`과 `question.text`(상세), `content[].text`(목록) 모두 제출 당시 값 그대로(수정된 값 아님) |
+| 11 | 본인 기록 목록 | `GET /api/me/practice/records` | `200`, `content`에 5·6·7번에서 생성된 기록만 포함(다른 학생 기록 없음), 각 항목에 제출 당시 문제 본문(`text`) 포함 |
 | 12 | 본인 기록 상세 | `GET /api/me/practice/records/{5번 id}` | `200`, 전체 스냅샷 반환 |
 | 13 | 다른 학생 기록 상세 접근 | 학생 B의 토큰으로 `GET /api/me/practice/records/{5번 id}`(학생 A 소유) | `404` `STUDY_RECORD_NOT_FOUND` (`403` 아님) |
 | 14 | 필수 필드 누락 제출 | `POST /api/me/practice/answers` `{ "questionId": 1021 }` | `400` `INVALID_REQUEST` |

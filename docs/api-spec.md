@@ -234,7 +234,7 @@ refresh token은 회원 계정(`memberId`)을 키로 Redis에 저장되며, 로�
 ```json
 {
   "content": [
-    { "id": 501, "questionId": 1021, "type": "PRACTICE", "category": "가정법", "level": "심화", "correct": true, "submittedAt": "2026-08-13T10:15:00" }
+    { "id": 501, "questionId": 1021, "type": "PRACTICE", "category": "가정법", "level": "심화", "correct": true, "submittedAt": "2026-08-13T10:15:00", "text": "If I _____ you, I would study harder." }
   ],
   "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
 }

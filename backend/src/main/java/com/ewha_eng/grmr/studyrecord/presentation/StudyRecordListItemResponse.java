@@ -11,7 +11,8 @@ public record StudyRecordListItemResponse(
     String category,
     String level,
     boolean correct,
-    LocalDateTime submittedAt
+    LocalDateTime submittedAt,
+    String text
 ) {
 
     public static StudyRecordListItemResponse from(StudyRecord studyRecord) {
@@ -22,7 +23,8 @@ public record StudyRecordListItemResponse(
             studyRecord.getCategory(),
             label(studyRecord.getLevel()),
             studyRecord.isCorrect(),
-            studyRecord.getSubmittedAt()
+            studyRecord.getSubmittedAt(),
+            studyRecord.getText()
         );
     }
 
