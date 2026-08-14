@@ -30,12 +30,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = resolveToken(request);
 
         if (token != null && jwtTokenProvider.isValid(token)) {
-            Long memberId = jwtTokenProvider.getMemberId(token);
-            var authorities = List.of(
-                new SimpleGrantedAuthority("ROLE_" + jwtTokenProvider.getMemberType(token).name())
-            );
-            var authentication = new UsernamePasswordAuthenticationToken(memberId, null, authorities);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            var memberType = jwtTokenProvider.getMemberType(token);
+            if (memberType != null) {
+                Long memberId = jwtTokenProvider.getMemberId(token);
+                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + memberType.name()));
+                var authentication = new UsernamePasswordAuthenticationToken(memberId, null, authorities);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
         }
 
         filterChain.doFilter(request, response);
