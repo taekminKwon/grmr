@@ -4,6 +4,8 @@ import LoginPage from '../pages/LoginPage'
 import QuestionCreatePage from '../pages/QuestionCreatePage'
 import QuestionDetailPage from '../pages/QuestionDetailPage'
 import QuestionListPage from '../pages/QuestionListPage'
+import StudentHistoryDetailPage from '../pages/StudentHistoryDetailPage'
+import StudentHistoryListPage from '../pages/StudentHistoryListPage'
 import StudentPage from '../pages/StudentPage'
 import StudentPracticePage from '../pages/StudentPracticePage'
 import ProtectedRoute from './ProtectedRoute'
@@ -57,6 +59,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="STUDENT">
             <StudentPracticePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/history"
+        element={
+          <ProtectedRoute requiredRole="STUDENT">
+            <StudentHistoryListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/history/:id"
+        element={
+          <ProtectedRoute requiredRole="STUDENT">
+            <StudentHistoryDetailPage />
           </ProtectedRoute>
         }
       />

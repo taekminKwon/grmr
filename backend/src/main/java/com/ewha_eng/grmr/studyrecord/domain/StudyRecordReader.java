@@ -8,5 +8,5 @@ public interface StudyRecordReader {
 
     Optional<StudyRecord> findByIdAndMemberId(Long id, Long memberId);
 
-    Page<StudyRecord> findByMemberIdOrderBySubmittedAtDesc(Long memberId, Pageable pageable);
+    Page<StudyRecord> search(Long memberId, String category, Pageable pageable);
 }
