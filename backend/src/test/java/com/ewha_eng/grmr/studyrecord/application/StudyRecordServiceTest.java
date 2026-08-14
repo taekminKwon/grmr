@@ -19,6 +19,8 @@ import com.ewha_eng.grmr.question.domain.QuestionRepository;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import com.ewha_eng.grmr.question.domain.QuestionTypeNotSupportedException;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecord;
+import com.ewha_eng.grmr.studyrecord.domain.StudyRecordNotFoundException;
+import com.ewha_eng.grmr.studyrecord.domain.StudyRecordReader;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordStore;
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +31,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class StudyRecordServiceTest {
@@ -40,6 +47,9 @@ class StudyRecordServiceTest {
     private QuestionRepository questionRepository;
 
     @Mock
+    private StudyRecordReader studyRecordReader;
+
+    @Mock
     private StudyRecordStore studyRecordStore;
 
     @Captor
@@ -49,7 +59,8 @@ class StudyRecordServiceTest {
 
     @BeforeEach
     void setUp() {
-        studyRecordService = new StudyRecordService(memberReader, questionRepository, studyRecordStore);
+        studyRecordService = new StudyRecordService(memberReader, questionRepository, studyRecordReader,
+            studyRecordStore);
     }
 
     private Member student() {
@@ -203,5 +214,62 @@ class StudyRecordServiceTest {
             .isInstanceOf(QuestionTypeNotSupportedException.class);
 
         verify(studyRecordStore, never()).save(any());
+    }
+
+    private StudyRecord practiceAttempt(Member member, Question question, String answer, Long id) {
+        StudyRecord record = StudyRecord.createPracticeAttempt(member, question, answer);
+        ReflectionTestUtils.setField(record, "id", id);
+        return record;
+    }
+
+    @Test
+    void getMyPracticeRecords_delegatesToReader_withMemberIdCategoryAndPageable() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<StudyRecord> page = new PageImpl<>(List.of());
+        when(studyRecordReader.search(2L, "가정법", pageable)).thenReturn(page);
+
+        Page<StudyRecord> result = studyRecordService.getMyPracticeRecords(2L, "가정법", pageable);
+
+        assertThat(result).isSameAs(page);
+        verify(studyRecordReader).search(2L, "가정법", pageable);
+    }
+
+    @Test
+    void getMyPracticeRecords_returnsEmptyPage_whenMemberHasNoRecords() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(studyRecordReader.search(2L, null, pageable)).thenReturn(new PageImpl<>(List.of()));
+
+        Page<StudyRecord> result = studyRecordService.getMyPracticeRecords(2L, null, pageable);
+
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isZero();
+    }
+
+    @Test
+    void getMyPracticeRecord_returnsRecord_whenOwnedByMember() {
+        Member member = student();
+        Question question = activeMultipleChoiceQuestion();
+        StudyRecord record = practiceAttempt(member, question, "were", 501L);
+        when(studyRecordReader.findByIdAndMemberId(501L, 2L)).thenReturn(Optional.of(record));
+
+        StudyRecord result = studyRecordService.getMyPracticeRecord(2L, 501L);
+
+        assertThat(result).isSameAs(record);
+    }
+
+    @Test
+    void getMyPracticeRecord_throwsStudyRecordNotFoundException_whenRecordDoesNotExist() {
+        when(studyRecordReader.findByIdAndMemberId(999L, 2L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> studyRecordService.getMyPracticeRecord(2L, 999L))
+            .isInstanceOf(StudyRecordNotFoundException.class);
+    }
+
+    @Test
+    void getMyPracticeRecord_throwsStudyRecordNotFoundException_whenOwnedByAnotherMember() {
+        when(studyRecordReader.findByIdAndMemberId(501L, 3L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> studyRecordService.getMyPracticeRecord(3L, 501L))
+            .isInstanceOf(StudyRecordNotFoundException.class);
     }
 }

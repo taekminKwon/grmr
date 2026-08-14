@@ -10,6 +10,7 @@ import com.ewha_eng.grmr.question.domain.NoQuestionAvailableException;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import com.ewha_eng.grmr.question.domain.QuestionNotInUseException;
 import com.ewha_eng.grmr.question.domain.QuestionTypeNotSupportedException;
+import com.ewha_eng.grmr.studyrecord.domain.StudyRecordNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -82,5 +83,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMemberNotFound(MemberNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
             .body(new ErrorResponse("MEMBER_NOT_FOUND", e.getMessage()));
+    }
+
+    @ExceptionHandler(StudyRecordNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleStudyRecordNotFound(StudyRecordNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ErrorResponse("STUDY_RECORD_NOT_FOUND", e.getMessage()));
     }
 }

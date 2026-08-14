@@ -10,6 +10,7 @@ import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionRepository;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecord;
+import com.ewha_eng.grmr.studyrecord.domain.StudyRecordReader;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +28,9 @@ class StudyRecordJpaRepositoryTest {
 
     @Autowired
     private StudyRecordJpaRepository studyRecordRepository;
+
+    @Autowired
+    private StudyRecordReader studyRecordReader;
 
     @Autowired
     private MemberJpaRepository memberRepository;
@@ -52,7 +56,7 @@ class StudyRecordJpaRepositoryTest {
         StudyRecord saved = studyRecordRepository.saveAndFlush(
             StudyRecord.createPracticeAttempt(owner, question, "since"));
 
-        Optional<StudyRecord> found = studyRecordRepository.findByIdAndMemberId(saved.getId(), owner.getId());
+        Optional<StudyRecord> found = studyRecordReader.findByIdAndMemberId(saved.getId(), owner.getId());
 
         assertThat(found).isPresent();
         assertThat(found.get().getSubmittedAnswer()).isEqualTo("since");
@@ -66,13 +70,13 @@ class StudyRecordJpaRepositoryTest {
         StudyRecord saved = studyRecordRepository.saveAndFlush(
             StudyRecord.createPracticeAttempt(owner, question, "since"));
 
-        Optional<StudyRecord> found = studyRecordRepository.findByIdAndMemberId(saved.getId(), other.getId());
+        Optional<StudyRecord> found = studyRecordReader.findByIdAndMemberId(saved.getId(), other.getId());
 
         assertThat(found).isEmpty();
     }
 
     @Test
-    void findByMemberIdOrderBySubmittedAtDesc_returnsOnlyOwnRecords_mostRecentFirst() {
+    void search_returnsOnlyOwnRecords_mostRecentFirst() {
         Member owner = saveStudent("owner03");
         Member other = saveStudent("other03");
         Question question = saveQuestion();
@@ -82,12 +86,67 @@ class StudyRecordJpaRepositoryTest {
         StudyRecord newer = save(owner, question, "for", now.minusMinutes(1));
         save(other, question, "since", now);
 
-        Page<StudyRecord> page = studyRecordRepository.findByMemberIdOrderBySubmittedAtDesc(owner.getId(),
-            PageRequest.of(0, 10));
+        Page<StudyRecord> page = studyRecordReader.search(owner.getId(), null, PageRequest.of(0, 10));
 
         assertThat(page.getTotalElements()).isEqualTo(2);
         assertThat(page.getContent()).extracting(StudyRecord::getId)
             .containsExactly(newer.getId(), older.getId());
+    }
+
+    @Test
+    void search_filtersByCategory_whenProvided() {
+        Member owner = saveStudent("owner06");
+        Question sinceQuestion = saveQuestion();
+        Question anotherCategoryQuestion = questionRepository.saveAndFlush(Question.builder()
+            .category("가정법")
+            .type(QuestionType.MULTIPLE_CHOICE)
+            .level(QuestionLevel.ADVANCED)
+            .text("If I _____ you, I would study harder.")
+            .choices(List.of("am", "was", "were", "be"))
+            .answer("were")
+            .explanation("해설")
+            .build());
+        StudyRecord matching = studyRecordRepository.saveAndFlush(
+            StudyRecord.createPracticeAttempt(owner, sinceQuestion, "since"));
+        studyRecordRepository.saveAndFlush(
+            StudyRecord.createPracticeAttempt(owner, anotherCategoryQuestion, "were"));
+
+        Page<StudyRecord> page = studyRecordReader.search(owner.getId(), "현재완료", PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).extracting(StudyRecord::getId).containsExactly(matching.getId());
+    }
+
+    @Test
+    void search_ordersByIdDesc_asTieBreaker_whenSubmittedAtIsEqual() {
+        Member owner = saveStudent("owner07");
+        Question question = saveQuestion();
+        LocalDateTime same = LocalDateTime.now();
+
+        StudyRecord first = save(owner, question, "since", same);
+        StudyRecord second = save(owner, question, "for", same);
+
+        Page<StudyRecord> page = studyRecordReader.search(owner.getId(), null, PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).extracting(StudyRecord::getId)
+            .containsExactly(second.getId(), first.getId());
+    }
+
+    @Test
+    void search_paginatesResults_bySizeAndPage() {
+        Member owner = saveStudent("owner08");
+        Question question = saveQuestion();
+        LocalDateTime now = LocalDateTime.now();
+        for (int i = 0; i < 3; i++) {
+            save(owner, question, "since", now.minusMinutes(i));
+        }
+
+        Page<StudyRecord> firstPage = studyRecordReader.search(owner.getId(), null, PageRequest.of(0, 2));
+        Page<StudyRecord> secondPage = studyRecordReader.search(owner.getId(), null, PageRequest.of(1, 2));
+
+        assertThat(firstPage.getContent()).hasSize(2);
+        assertThat(firstPage.getTotalElements()).isEqualTo(3);
+        assertThat(firstPage.getTotalPages()).isEqualTo(2);
+        assertThat(secondPage.getContent()).hasSize(1);
     }
 
     @Test
