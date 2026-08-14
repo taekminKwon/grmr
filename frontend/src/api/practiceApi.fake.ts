@@ -139,8 +139,8 @@ export function createFakePracticeApi(
     return {
       id: nextRecordId++,
       questionId: question.id,
-      correct: question.answer === payload.submittedAnswer,
-      submittedAnswer: payload.submittedAnswer,
+      correct: question.answer === payload.answer,
+      submittedAnswer: payload.answer,
       correctAnswer: question.answer,
       explanation: question.explanation,
       submittedAt: new Date().toISOString(),

@@ -21,7 +21,7 @@ export type PracticeQuestionFilters = {
 
 export type PracticeAnswerRequest = {
   questionId: number
-  submittedAnswer: string
+  answer: string
 }
 
 // The graded record. Includes `correctAnswer`/`explanation` because by this

@@ -73,7 +73,7 @@ describe('createFakePracticeApi.submitAnswer', () => {
   it('grades a correct submission', async () => {
     const api = createFakePracticeApi()
 
-    const result = await api.submitAnswer(TOKEN, { questionId: 2001, submittedAnswer: 'since' })
+    const result = await api.submitAnswer(TOKEN, { questionId: 2001, answer: 'since' })
 
     expect(result.correct).toBe(true)
     expect(result.correctAnswer).toBe('since')
@@ -84,7 +84,7 @@ describe('createFakePracticeApi.submitAnswer', () => {
   it('grades an incorrect submission, still returning the correct answer and explanation', async () => {
     const api = createFakePracticeApi()
 
-    const result = await api.submitAnswer(TOKEN, { questionId: 2001, submittedAnswer: 'for' })
+    const result = await api.submitAnswer(TOKEN, { questionId: 2001, answer: 'for' })
 
     expect(result.correct).toBe(false)
     expect(result.correctAnswer).toBe('since')
@@ -94,9 +94,9 @@ describe('createFakePracticeApi.submitAnswer', () => {
   it('assigns a distinct record id to each repeated attempt on the same question', async () => {
     const api = createFakePracticeApi()
 
-    const first = await api.submitAnswer(TOKEN, { questionId: 2001, submittedAnswer: 'since' })
-    const second = await api.submitAnswer(TOKEN, { questionId: 2001, submittedAnswer: 'for' })
-    const third = await api.submitAnswer(TOKEN, { questionId: 2001, submittedAnswer: 'since' })
+    const first = await api.submitAnswer(TOKEN, { questionId: 2001, answer: 'since' })
+    const second = await api.submitAnswer(TOKEN, { questionId: 2001, answer: 'for' })
+    const third = await api.submitAnswer(TOKEN, { questionId: 2001, answer: 'since' })
 
     const ids = [first.id, second.id, third.id]
     expect(new Set(ids).size).toBe(3)
@@ -105,10 +105,10 @@ describe('createFakePracticeApi.submitAnswer', () => {
   it('throws a PracticeApiError with a 404 for an unknown question id', async () => {
     const api = createFakePracticeApi()
 
-    await expect(api.submitAnswer(TOKEN, { questionId: 999999, submittedAnswer: 'since' })).rejects.toBeInstanceOf(
+    await expect(api.submitAnswer(TOKEN, { questionId: 999999, answer: 'since' })).rejects.toBeInstanceOf(
       PracticeApiError,
     )
-    await expect(api.submitAnswer(TOKEN, { questionId: 999999, submittedAnswer: 'since' })).rejects.toMatchObject({
+    await expect(api.submitAnswer(TOKEN, { questionId: 999999, answer: 'since' })).rejects.toMatchObject({
       code: 'QUESTION_NOT_FOUND',
       status: 404,
     })
@@ -117,7 +117,7 @@ describe('createFakePracticeApi.submitAnswer', () => {
   it('throws a PracticeApiError with a 409 QUESTION_NOT_IN_USE when submitting to an inactive question', async () => {
     const api = createFakePracticeApi()
 
-    await expect(api.submitAnswer(TOKEN, { questionId: 2003, submittedAnswer: 'had' })).rejects.toMatchObject({
+    await expect(api.submitAnswer(TOKEN, { questionId: 2003, answer: 'had' })).rejects.toMatchObject({
       code: 'QUESTION_NOT_IN_USE',
       status: 409,
     })
@@ -127,7 +127,7 @@ describe('createFakePracticeApi.submitAnswer', () => {
     const api = createFakePracticeApi()
 
     await expect(
-      api.submitAnswer(TOKEN, { questionId: 2005, submittedAnswer: 'more interesting' }),
+      api.submitAnswer(TOKEN, { questionId: 2005, answer: 'more interesting' }),
     ).rejects.toMatchObject({
       code: 'QUESTION_NOT_IN_USE',
       status: 409,
@@ -137,7 +137,7 @@ describe('createFakePracticeApi.submitAnswer', () => {
   it('throws a PracticeApiError with a 409 QUESTION_TYPE_NOT_SUPPORTED when submitting to a question outside Phase 1 scope', async () => {
     const api = createFakePracticeApi()
 
-    await expect(api.submitAnswer(TOKEN, { questionId: 2004, submittedAnswer: 'which' })).rejects.toMatchObject({
+    await expect(api.submitAnswer(TOKEN, { questionId: 2004, answer: 'which' })).rejects.toMatchObject({
       code: 'QUESTION_TYPE_NOT_SUPPORTED',
       status: 409,
     })
@@ -149,16 +149,16 @@ describe('createFakePracticeApi isolation', () => {
     const apiA = createFakePracticeApi()
     const apiB = createFakePracticeApi()
 
-    await apiA.submitAnswer(TOKEN, { questionId: 2001, submittedAnswer: 'since' })
-    await apiA.submitAnswer(TOKEN, { questionId: 2001, submittedAnswer: 'since' })
-    const bResult = await apiB.submitAnswer(TOKEN, { questionId: 2001, submittedAnswer: 'since' })
+    await apiA.submitAnswer(TOKEN, { questionId: 2001, answer: 'since' })
+    await apiA.submitAnswer(TOKEN, { questionId: 2001, answer: 'since' })
+    const bResult = await apiB.submitAnswer(TOKEN, { questionId: 2001, answer: 'since' })
 
     expect(bResult.id).toBe(1)
   })
 
   it('does not mutate the shared fixture list across instances', async () => {
     const api = createFakePracticeApi()
-    await api.submitAnswer(TOKEN, { questionId: 2001, submittedAnswer: 'since' })
+    await api.submitAnswer(TOKEN, { questionId: 2001, answer: 'since' })
 
     expect(PRACTICE_QUESTION_FIXTURES.find((question) => question.id === 2001)).toMatchObject({ answer: 'since' })
   })
