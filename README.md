@@ -31,6 +31,26 @@ cd backend
 ./gradlew build       # 빌드
 ```
 
+## 로컬 배포 (Docker Compose)
+
+`scripts/deploy-local.sh`는 로컬에서 `docker compose`로 전체 스택(postgres, redis, backend, frontend)을 빌드·기동하는 단일 진입점입니다. 저장소 루트를 스크립트 위치 기준으로 자동 탐색하므로 어느 디렉터리에서, 어느 git worktree에서 실행해도 동일하게 동작합니다.
+
+```bash
+# 기본: <repo-root>/.env 사용
+scripts/deploy-local.sh
+
+# worktree에서 메인 저장소의 .env를 재사용하는 경우
+scripts/deploy-local.sh /Users/you/Desktop/ewha-grmr/.env
+```
+
+- 프로젝트 이름은 `infra-compose`로 고정됩니다.
+- Docker, `docker compose`, `compose.yaml`, env 파일 중 하나라도 없으면 즉시 에러를 출력하고 종료합니다.
+- 배포 대상 브랜치/커밋만 출력하며 env 파일 내용은 출력하지 않습니다.
+- 빌드 → detached 기동 → orphan 컨테이너 정리 → bounded health wait(`--wait`) 순서로 실행되고, 마지막에 `docker compose ps` 결과를 출력합니다.
+- 볼륨 삭제/prune 등 파괴적 동작은 수행하지 않습니다.
+
+문법 검증(도커 미실행)은 `scripts/check-deploy-local.sh`로 수행할 수 있습니다.
+
 ## 문서
 
 - [기능 명세](docs/feature-spec.md)
