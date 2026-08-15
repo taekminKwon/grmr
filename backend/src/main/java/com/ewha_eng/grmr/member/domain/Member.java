@@ -27,12 +27,15 @@ public class Member {
     @Enumerated(EnumType.STRING)
     private MemberType type;
 
+    private String studentGroup;
+
     @Builder
-    private Member(String loginId, String password, String name, MemberType type) {
+    private Member(String loginId, String password, String name, MemberType type, String studentGroup) {
         this.loginId = loginId;
         this.password = password;
         this.name = name;
         this.type = type;
+        this.studentGroup = studentGroup;
     }
 
     public boolean isStudent() {
