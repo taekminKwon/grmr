@@ -1,5 +1,10 @@
 package com.ewha_eng.grmr.global.exception;
 
+import com.ewha_eng.grmr.assignment.domain.AssignmentAlreadyClosedException;
+import com.ewha_eng.grmr.assignment.domain.AssignmentNotFoundException;
+import com.ewha_eng.grmr.assignment.domain.InvalidAssignmentException;
+import com.ewha_eng.grmr.assignment.domain.InvalidAssignmentSearchException;
+import com.ewha_eng.grmr.assignment.domain.StudentNotFoundException;
 import com.ewha_eng.grmr.auth.domain.InvalidCredentialsException;
 import com.ewha_eng.grmr.auth.domain.InvalidRefreshTokenException;
 import com.ewha_eng.grmr.member.domain.MemberNotFoundException;
@@ -110,5 +115,35 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInvalidStudyRecord(InvalidStudyRecordException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
+    }
+
+    @ExceptionHandler(AssignmentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAssignmentNotFound(AssignmentNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ErrorResponse("ASSIGNMENT_NOT_FOUND", e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidAssignmentSearchException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidAssignmentSearch(InvalidAssignmentSearchException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidAssignmentException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidAssignment(InvalidAssignmentException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_ASSIGNMENT", e.getMessage()));
+    }
+
+    @ExceptionHandler(AssignmentAlreadyClosedException.class)
+    public ResponseEntity<ErrorResponse> handleAssignmentAlreadyClosed(AssignmentAlreadyClosedException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ErrorResponse("ASSIGNMENT_ALREADY_CLOSED", e.getMessage()));
+    }
+
+    @ExceptionHandler(StudentNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleStudentNotFound(StudentNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ErrorResponse("STUDENT_NOT_FOUND", e.getMessage()));
     }
 }
