@@ -1,0 +1,189 @@
+package com.ewha_eng.grmr.assignment.application;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.when;
+
+import com.ewha_eng.grmr.assignment.domain.Assignment;
+import com.ewha_eng.grmr.assignment.domain.AssignmentNotFoundException;
+import com.ewha_eng.grmr.assignment.domain.AssignmentRepository;
+import com.ewha_eng.grmr.assignment.domain.AssignmentStatus;
+import com.ewha_eng.grmr.assignment.domain.AssignmentTargetType;
+import com.ewha_eng.grmr.assignment.domain.InvalidAssignmentSearchException;
+import com.ewha_eng.grmr.member.domain.Member;
+import com.ewha_eng.grmr.member.domain.MemberNotFoundException;
+import com.ewha_eng.grmr.member.domain.MemberReader;
+import com.ewha_eng.grmr.member.domain.MemberType;
+import com.ewha_eng.grmr.question.domain.Question;
+import com.ewha_eng.grmr.question.domain.QuestionLevel;
+import com.ewha_eng.grmr.question.domain.QuestionRepository;
+import com.ewha_eng.grmr.question.domain.QuestionType;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.test.util.ReflectionTestUtils;
+
+@ExtendWith(MockitoExtension.class)
+class AssignmentAdminServiceTest {
+
+    private static final LocalDate FIXED_TODAY = LocalDate.of(2026, 8, 16);
+
+    @Mock
+    private AssignmentRepository assignmentRepository;
+
+    @Mock
+    private QuestionRepository questionRepository;
+
+    @Mock
+    private MemberReader memberReader;
+
+    @Mock
+    private AssignmentSubmissionProgressPort submissionProgressPort;
+
+    private AssignmentAdminService service;
+
+    @BeforeEach
+    void setUp() {
+        Clock fixedClock = Clock.fixed(FIXED_TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
+        service = new AssignmentAdminService(assignmentRepository, questionRepository, memberReader,
+            submissionProgressPort, fixedClock);
+    }
+
+    @Test
+    void search_throws_whenPageIsNegative() {
+        assertThatThrownBy(() -> service.search(null, null, -1, 20))
+            .isInstanceOf(InvalidAssignmentSearchException.class);
+    }
+
+    @Test
+    void search_throws_whenSizeIsBelowMinimum() {
+        assertThatThrownBy(() -> service.search(null, null, 0, 0))
+            .isInstanceOf(InvalidAssignmentSearchException.class);
+    }
+
+    @Test
+    void search_throws_whenSizeExceedsMaximum() {
+        assertThatThrownBy(() -> service.search(null, null, 0, 101))
+            .isInstanceOf(InvalidAssignmentSearchException.class);
+    }
+
+    @Test
+    void search_resolvesClassTargetDisplay_fromTargetGroup() {
+        Assignment classAssignment = classAssignment();
+        when(assignmentRepository.search(AssignmentStatus.IN_PROGRESS, "복습", FIXED_TODAY, PageRequest.of(0, 20)))
+            .thenReturn(new PageImpl<>(List.of(classAssignment)));
+
+        Page<AssignmentListItem> result = service.search(AssignmentStatus.IN_PROGRESS, "복습", 0, 20);
+
+        assertThat(result.getContent()).hasSize(1);
+        AssignmentListItem item = result.getContent().get(0);
+        assertThat(item.targetType()).isEqualTo(AssignmentTargetType.CLASS);
+        assertThat(item.targetDisplay()).isEqualTo("중1 A반");
+        assertThat(item.status()).isEqualTo(AssignmentStatus.IN_PROGRESS);
+        assertThat(item.questionCount()).isEqualTo(2);
+    }
+
+    @Test
+    void search_resolvesStudentTargetDisplay_fromMemberName() {
+        Assignment studentAssignment = studentAssignment();
+        Member student = Member.builder()
+            .loginId("student1")
+            .password("hashed")
+            .name("김민수")
+            .type(MemberType.STUDENT)
+            .build();
+        when(assignmentRepository.search(null, null, FIXED_TODAY, PageRequest.of(0, 20)))
+            .thenReturn(new PageImpl<>(List.of(studentAssignment)));
+        when(memberReader.findById(501L)).thenReturn(Optional.of(student));
+
+        Page<AssignmentListItem> result = service.search(null, null, 0, 20);
+
+        assertThat(result.getContent().get(0).targetDisplay()).isEqualTo("김민수");
+    }
+
+    @Test
+    void search_throwsMemberNotFound_whenTargetStudentIsMissing() {
+        Assignment studentAssignment = studentAssignment();
+        when(assignmentRepository.search(null, null, FIXED_TODAY, PageRequest.of(0, 20)))
+            .thenReturn(new PageImpl<>(List.of(studentAssignment)));
+        when(memberReader.findById(501L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.search(null, null, 0, 20))
+            .isInstanceOf(MemberNotFoundException.class);
+    }
+
+    @Test
+    void getDetail_throwsAssignmentNotFound_whenIdIsMissing() {
+        when(assignmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getDetail(999L))
+            .isInstanceOf(AssignmentNotFoundException.class);
+    }
+
+    @Test
+    void getDetail_returnsQuestionsInAssignmentOrder_withDefaultZeroProgress() {
+        Assignment assignment = classAssignment();
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        Question first = question(101L, "관계대명사", "who 문제");
+        Question second = question(102L, "현재완료", "since 문제");
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        when(questionRepository.findAllById(anyList())).thenReturn(List.of(second, first));
+        when(submissionProgressPort.progressFor(10L)).thenReturn(AssignmentSubmissionProgress.zero());
+
+        AssignmentDetail detail = service.getDetail(10L);
+
+        assertThat(detail.questions()).extracting(AssignmentQuestionSummary::questionId)
+            .containsExactly(102L, 101L);
+        assertThat(detail.questions()).extracting(AssignmentQuestionSummary::order)
+            .containsExactly(1, 2);
+        assertThat(detail.submissionProgress()).isEqualTo(AssignmentSubmissionProgress.zero());
+        assertThat(detail.status()).isEqualTo(AssignmentStatus.IN_PROGRESS);
+    }
+
+    private Assignment classAssignment() {
+        return Assignment.builder()
+            .title("현재완료 복습 과제")
+            .targetType(AssignmentTargetType.CLASS)
+            .targetGroup("중1 A반")
+            .startDate(FIXED_TODAY.minusDays(1))
+            .dueDate(FIXED_TODAY.plusDays(1))
+            .questionIds(List.of(102L, 101L))
+            .build();
+    }
+
+    private Assignment studentAssignment() {
+        return Assignment.builder()
+            .title("개별 보충 과제")
+            .targetType(AssignmentTargetType.STUDENT)
+            .targetStudentId(501L)
+            .startDate(FIXED_TODAY.minusDays(1))
+            .dueDate(FIXED_TODAY.plusDays(1))
+            .questionIds(List.of(101L))
+            .build();
+    }
+
+    private Question question(Long id, String category, String text) {
+        Question question = Question.builder()
+            .category(category)
+            .type(QuestionType.MULTIPLE_CHOICE)
+            .level(QuestionLevel.BASIC)
+            .text(text)
+            .choices(List.of("a", "b"))
+            .answer("a")
+            .explanation("해설")
+            .build();
+        ReflectionTestUtils.setField(question, "id", id);
+        return question;
+    }
+}
