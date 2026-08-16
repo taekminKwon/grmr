@@ -3,10 +3,15 @@ package com.ewha_eng.grmr.assignment.presentation;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -15,10 +20,13 @@ import com.ewha_eng.grmr.assignment.application.AssignmentDetail;
 import com.ewha_eng.grmr.assignment.application.AssignmentListItem;
 import com.ewha_eng.grmr.assignment.application.AssignmentQuestionSummary;
 import com.ewha_eng.grmr.assignment.application.AssignmentSubmissionProgress;
+import com.ewha_eng.grmr.assignment.domain.AssignmentAlreadyClosedException;
 import com.ewha_eng.grmr.assignment.domain.AssignmentNotFoundException;
 import com.ewha_eng.grmr.assignment.domain.AssignmentStatus;
 import com.ewha_eng.grmr.assignment.domain.AssignmentTargetType;
+import com.ewha_eng.grmr.assignment.domain.InvalidAssignmentException;
 import com.ewha_eng.grmr.assignment.domain.InvalidAssignmentSearchException;
+import com.ewha_eng.grmr.assignment.domain.StudentNotFoundException;
 import com.ewha_eng.grmr.auth.infrastructure.JwtAuthenticationFilter;
 import com.ewha_eng.grmr.auth.infrastructure.JwtTokenProvider;
 import com.ewha_eng.grmr.global.exception.GlobalExceptionHandler;
@@ -26,6 +34,7 @@ import com.ewha_eng.grmr.global.security.JsonAccessDeniedHandler;
 import com.ewha_eng.grmr.global.security.JsonAuthenticationEntryPoint;
 import com.ewha_eng.grmr.global.security.SecurityConfig;
 import com.ewha_eng.grmr.member.domain.MemberType;
+import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -35,8 +44,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(AssignmentController.class)
 @Import({
@@ -50,6 +61,9 @@ class AssignmentControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @MockitoBean
     private AssignmentAdminService assignmentAdminService;
@@ -319,6 +333,411 @@ class AssignmentControllerTest {
             .andExpect(jsonPath("$.code").value("FORBIDDEN"));
 
         verify(assignmentAdminService, never()).getDetail(any());
+    }
+
+    @Test
+    void create_returns201_withClassTarget() throws Exception {
+        authenticateAsAdmin();
+        AssignmentListItem created = new AssignmentListItem(
+            4L, "현재완료 시제 연습", AssignmentTargetType.CLASS, "중1 A반", null, "중1 A반",
+            AssignmentStatus.SCHEDULED, LocalDate.of(2026, 8, 18), LocalDate.of(2026, 8, 20), 3,
+            AssignmentSubmissionProgress.zero());
+        when(assignmentAdminService.create(eq("현재완료 시제 연습"), eq(AssignmentTargetType.CLASS), eq("중1 A반"),
+            isNull(), eq(LocalDate.of(2026, 8, 18)), eq(LocalDate.of(2026, 8, 20)), eq(List.of(1024L, 1023L, 1021L))))
+            .thenReturn(created);
+        String body = """
+            {
+              "title": "현재완료 시제 연습",
+              "targetType": "CLASS",
+              "targetGroup": "중1 A반",
+              "startDate": "2026-08-18",
+              "dueDate": "2026-08-20",
+              "questionIds": [1024, 1023, 1021]
+            }
+            """;
+
+        mockMvc.perform(post("/api/assignments")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isCreated())
+            .andExpect(header().string("Location", "/api/assignments/4"))
+            .andExpect(jsonPath("$.id").value(4))
+            .andExpect(jsonPath("$.targetType").value("CLASS"))
+            .andExpect(jsonPath("$.target").value("중1 A반"))
+            .andExpect(jsonPath("$.status").value("예정"))
+            .andExpect(jsonPath("$.progress").value(0));
+    }
+
+    @Test
+    void create_returns201_withStudentTarget() throws Exception {
+        authenticateAsAdmin();
+        AssignmentListItem created = new AssignmentListItem(
+            5L, "개별 보충 과제", AssignmentTargetType.STUDENT, null, 501L, "김민수",
+            AssignmentStatus.IN_PROGRESS, LocalDate.of(2026, 8, 16), LocalDate.of(2026, 8, 18), 1,
+            AssignmentSubmissionProgress.zero());
+        when(assignmentAdminService.create(eq("개별 보충 과제"), eq(AssignmentTargetType.STUDENT), isNull(),
+            eq(501L), eq(LocalDate.of(2026, 8, 16)), eq(LocalDate.of(2026, 8, 18)), eq(List.of(1024L))))
+            .thenReturn(created);
+        String body = """
+            {
+              "title": "개별 보충 과제",
+              "targetType": "STUDENT",
+              "targetStudentId": 501,
+              "startDate": "2026-08-16",
+              "dueDate": "2026-08-18",
+              "questionIds": [1024]
+            }
+            """;
+
+        mockMvc.perform(post("/api/assignments")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isCreated())
+            .andExpect(header().string("Location", "/api/assignments/5"))
+            .andExpect(jsonPath("$.targetType").value("STUDENT"))
+            .andExpect(jsonPath("$.targetGroup").doesNotExist())
+            .andExpect(jsonPath("$.targetStudentId").value(501))
+            .andExpect(jsonPath("$.target").value("김민수"));
+    }
+
+    @Test
+    void create_returns400_withInvalidAssignmentCode_whenQuestionIdsIsEmpty() throws Exception {
+        authenticateAsAdmin();
+        when(assignmentAdminService.create(any(), any(), any(), any(), any(), any(), any()))
+            .thenThrow(new InvalidAssignmentException("문제를 1개 이상 선택해야 합니다."));
+        String body = """
+            {
+              "title": "제목",
+              "targetType": "CLASS",
+              "targetGroup": "중1 A반",
+              "startDate": "2026-08-18",
+              "dueDate": "2026-08-20",
+              "questionIds": []
+            }
+            """;
+
+        mockMvc.perform(post("/api/assignments")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ASSIGNMENT"));
+    }
+
+    @Test
+    void create_returns400_withInvalidAssignmentCode_whenStartDateAfterDueDate() throws Exception {
+        authenticateAsAdmin();
+        when(assignmentAdminService.create(any(), any(), any(), any(), any(), any(), any()))
+            .thenThrow(new InvalidAssignmentException("시작일은 마감일보다 늦을 수 없습니다."));
+        String body = """
+            {
+              "title": "제목",
+              "targetType": "CLASS",
+              "targetGroup": "중1 A반",
+              "startDate": "2026-08-20",
+              "dueDate": "2026-08-18",
+              "questionIds": [1024]
+            }
+            """;
+
+        mockMvc.perform(post("/api/assignments")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ASSIGNMENT"));
+    }
+
+    @Test
+    void create_returns404_withQuestionNotFoundCode_whenQuestionIdDoesNotExist() throws Exception {
+        authenticateAsAdmin();
+        when(assignmentAdminService.create(any(), any(), any(), any(), any(), any(), any()))
+            .thenThrow(new QuestionNotFoundException("문제를 찾을 수 없습니다."));
+        String body = """
+            {
+              "title": "제목",
+              "targetType": "CLASS",
+              "targetGroup": "중1 A반",
+              "startDate": "2026-08-18",
+              "dueDate": "2026-08-20",
+              "questionIds": [999999]
+            }
+            """;
+
+        mockMvc.perform(post("/api/assignments")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("QUESTION_NOT_FOUND"));
+    }
+
+    @Test
+    void create_returns404_withStudentNotFoundCode_whenTargetStudentDoesNotExist() throws Exception {
+        authenticateAsAdmin();
+        when(assignmentAdminService.create(any(), any(), any(), any(), any(), any(), any()))
+            .thenThrow(new StudentNotFoundException("학생을 찾을 수 없습니다."));
+        String body = """
+            {
+              "title": "제목",
+              "targetType": "STUDENT",
+              "targetStudentId": 999999,
+              "startDate": "2026-08-18",
+              "dueDate": "2026-08-20",
+              "questionIds": [1024]
+            }
+            """;
+
+        mockMvc.perform(post("/api/assignments")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("STUDENT_NOT_FOUND"));
+    }
+
+    @Test
+    void create_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
+        String body = """
+            { "title": "제목", "targetType": "CLASS", "targetGroup": "중1 A반",
+              "startDate": "2026-08-18", "dueDate": "2026-08-20", "questionIds": [1024] }
+            """;
+
+        mockMvc.perform(post("/api/assignments")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isUnauthorized());
+
+        verify(assignmentAdminService, never()).create(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void create_returns403_whenAccessTokenIsStudentRole() throws Exception {
+        authenticateAsStudent();
+        String body = """
+            { "title": "제목", "targetType": "CLASS", "targetGroup": "중1 A반",
+              "startDate": "2026-08-18", "dueDate": "2026-08-20", "questionIds": [1024] }
+            """;
+
+        mockMvc.perform(post("/api/assignments")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        verify(assignmentAdminService, never()).create(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void update_returns200_withMergedDueDate() throws Exception {
+        authenticateAsAdmin();
+        AssignmentDetail updated = new AssignmentDetail(
+            1L, "현재완료 시제 연습", AssignmentTargetType.CLASS, "중1 A반", null, "중1 A반",
+            AssignmentStatus.IN_PROGRESS, LocalDate.of(2026, 8, 3), LocalDate.of(2026, 8, 12),
+            List.of(new AssignmentQuestionSummary(1, 1024L, "현재완료", "He has lived here _____ 2010.")),
+            new AssignmentSubmissionProgress(25, 21));
+        when(assignmentAdminService.update(eq(1L), isNull(), isNull(), isNull(), isNull(),
+            eq(LocalDate.of(2026, 8, 12)), isNull()))
+            .thenReturn(updated);
+        String body = """
+            { "dueDate": "2026-08-12" }
+            """;
+
+        mockMvc.perform(patch("/api/assignments/1")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.dueDate").value("2026-08-12"))
+            .andExpect(jsonPath("$.questions[0].id").value(1024));
+    }
+
+    @Test
+    void update_returns200_withTargetTypeSwitch() throws Exception {
+        authenticateAsAdmin();
+        AssignmentDetail updated = new AssignmentDetail(
+            1L, "현재완료 시제 연습", AssignmentTargetType.STUDENT, null, 501L, "김민수",
+            AssignmentStatus.IN_PROGRESS, LocalDate.of(2026, 8, 3), LocalDate.of(2026, 8, 5),
+            List.of(new AssignmentQuestionSummary(1, 1024L, "현재완료", "He has lived here _____ 2010.")),
+            AssignmentSubmissionProgress.zero());
+        when(assignmentAdminService.update(eq(1L), eq(AssignmentTargetType.STUDENT), isNull(), eq(501L),
+            isNull(), isNull(), isNull()))
+            .thenReturn(updated);
+        String body = """
+            { "targetType": "STUDENT", "targetStudentId": 501 }
+            """;
+
+        mockMvc.perform(patch("/api/assignments/1")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.targetType").value("STUDENT"))
+            .andExpect(jsonPath("$.targetGroup").doesNotExist())
+            .andExpect(jsonPath("$.targetStudentId").value(501))
+            .andExpect(jsonPath("$.target").value("김민수"));
+    }
+
+    @Test
+    void update_returns400_withInvalidAssignmentCode_whenDatesConflict() throws Exception {
+        authenticateAsAdmin();
+        when(assignmentAdminService.update(any(), any(), any(), any(), any(), any(), any()))
+            .thenThrow(new InvalidAssignmentException("시작일은 마감일보다 늦을 수 없습니다."));
+        String body = """
+            { "startDate": "2026-09-01" }
+            """;
+
+        mockMvc.perform(patch("/api/assignments/1")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ASSIGNMENT"));
+    }
+
+    @Test
+    void update_returns404_withAssignmentNotFoundCode_whenAssignmentDoesNotExist() throws Exception {
+        authenticateAsAdmin();
+        when(assignmentAdminService.update(any(), any(), any(), any(), any(), any(), any()))
+            .thenThrow(new AssignmentNotFoundException("과제를 찾을 수 없습니다."));
+        String body = """
+            { "dueDate": "2026-08-12" }
+            """;
+
+        mockMvc.perform(patch("/api/assignments/999")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("ASSIGNMENT_NOT_FOUND"));
+    }
+
+    @Test
+    void update_returns409_withAssignmentAlreadyClosedCode_whenAssignmentIsClosed() throws Exception {
+        authenticateAsAdmin();
+        when(assignmentAdminService.update(any(), any(), any(), any(), any(), any(), any()))
+            .thenThrow(new AssignmentAlreadyClosedException("마감된 과제는 수정할 수 없습니다."));
+        String body = """
+            { "dueDate": "2026-08-30" }
+            """;
+
+        mockMvc.perform(patch("/api/assignments/1")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ASSIGNMENT_ALREADY_CLOSED"));
+    }
+
+    @Test
+    void update_returns404_withQuestionNotFoundCode_whenNewQuestionIdDoesNotExist() throws Exception {
+        authenticateAsAdmin();
+        when(assignmentAdminService.update(any(), any(), any(), any(), any(), any(), any()))
+            .thenThrow(new QuestionNotFoundException("문제를 찾을 수 없습니다."));
+        String body = """
+            { "questionIds": [999999] }
+            """;
+
+        mockMvc.perform(patch("/api/assignments/1")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("QUESTION_NOT_FOUND"));
+    }
+
+    @Test
+    void update_returns404_withStudentNotFoundCode_whenNewTargetStudentDoesNotExist() throws Exception {
+        authenticateAsAdmin();
+        when(assignmentAdminService.update(any(), any(), any(), any(), any(), any(), any()))
+            .thenThrow(new StudentNotFoundException("학생을 찾을 수 없습니다."));
+        String body = """
+            { "targetType": "STUDENT", "targetStudentId": 999999 }
+            """;
+
+        mockMvc.perform(patch("/api/assignments/1")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("STUDENT_NOT_FOUND"));
+    }
+
+    @Test
+    void update_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
+        String body = """
+            { "dueDate": "2026-08-12" }
+            """;
+
+        mockMvc.perform(patch("/api/assignments/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isUnauthorized());
+
+        verify(assignmentAdminService, never()).update(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void update_returns403_whenAccessTokenIsStudentRole() throws Exception {
+        authenticateAsStudent();
+        String body = """
+            { "dueDate": "2026-08-12" }
+            """;
+
+        mockMvc.perform(patch("/api/assignments/1")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        verify(assignmentAdminService, never()).update(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void delete_returns204_whenAssignmentExists() throws Exception {
+        authenticateAsAdmin();
+
+        mockMvc.perform(delete("/api/assignments/1")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isNoContent());
+
+        verify(assignmentAdminService).delete(1L);
+    }
+
+    @Test
+    void delete_returns404_withAssignmentNotFoundCode_whenAssignmentDoesNotExist() throws Exception {
+        authenticateAsAdmin();
+        doThrow(new AssignmentNotFoundException("과제를 찾을 수 없습니다."))
+            .when(assignmentAdminService).delete(999L);
+
+        mockMvc.perform(delete("/api/assignments/999")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("ASSIGNMENT_NOT_FOUND"));
+    }
+
+    @Test
+    void delete_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
+        mockMvc.perform(delete("/api/assignments/1"))
+            .andExpect(status().isUnauthorized());
+
+        verify(assignmentAdminService, never()).delete(any());
+    }
+
+    @Test
+    void delete_returns403_whenAccessTokenIsStudentRole() throws Exception {
+        authenticateAsStudent();
+
+        mockMvc.perform(delete("/api/assignments/1")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        verify(assignmentAdminService, never()).delete(any());
     }
 
     private void authenticateAsAdmin() {

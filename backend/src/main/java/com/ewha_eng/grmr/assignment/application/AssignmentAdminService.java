@@ -1,19 +1,25 @@
 package com.ewha_eng.grmr.assignment.application;
 
 import com.ewha_eng.grmr.assignment.domain.Assignment;
+import com.ewha_eng.grmr.assignment.domain.AssignmentAlreadyClosedException;
 import com.ewha_eng.grmr.assignment.domain.AssignmentNotFoundException;
 import com.ewha_eng.grmr.assignment.domain.AssignmentRepository;
 import com.ewha_eng.grmr.assignment.domain.AssignmentStatus;
 import com.ewha_eng.grmr.assignment.domain.AssignmentTargetType;
 import com.ewha_eng.grmr.assignment.domain.InvalidAssignmentSearchException;
+import com.ewha_eng.grmr.assignment.domain.StudentNotFoundException;
+import com.ewha_eng.grmr.member.domain.Member;
 import com.ewha_eng.grmr.member.domain.MemberNotFoundException;
 import com.ewha_eng.grmr.member.domain.MemberReader;
 import com.ewha_eng.grmr.question.domain.Question;
+import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import com.ewha_eng.grmr.question.domain.QuestionRepository;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -54,6 +60,78 @@ public class AssignmentAdminService {
             .orElseThrow(() -> new AssignmentNotFoundException("과제를 찾을 수 없습니다."));
         LocalDate today = LocalDate.now(clock);
 
+        return toDetail(assignment, today);
+    }
+
+    @Transactional
+    public AssignmentListItem create(String title, AssignmentTargetType targetType, String targetGroup,
+        Long targetStudentId, LocalDate startDate, LocalDate dueDate, List<Long> questionIds) {
+        Assignment assignment = Assignment.builder()
+            .title(title)
+            .targetType(targetType)
+            .targetGroup(targetGroup)
+            .targetStudentId(targetStudentId)
+            .startDate(startDate)
+            .dueDate(dueDate)
+            .questionIds(questionIds)
+            .build();
+
+        validateQuestionsExist(assignment.getQuestionIds());
+        if (assignment.getTargetType() == AssignmentTargetType.STUDENT) {
+            validateTargetStudentExists(assignment.getTargetStudentId());
+        }
+
+        Assignment saved = assignmentRepository.save(assignment);
+        return toListItem(saved, LocalDate.now(clock));
+    }
+
+    @Transactional
+    public AssignmentDetail update(Long id, AssignmentTargetType targetType, String targetGroup,
+        Long targetStudentId, LocalDate startDate, LocalDate dueDate, List<Long> questionIds) {
+        Assignment assignment = assignmentRepository.findById(id)
+            .orElseThrow(() -> new AssignmentNotFoundException("과제를 찾을 수 없습니다."));
+        LocalDate today = LocalDate.now(clock);
+
+        if (assignment.status(today) == AssignmentStatus.CLOSED) {
+            throw new AssignmentAlreadyClosedException("마감된 과제는 수정할 수 없습니다.");
+        }
+        if (questionIds != null) {
+            validateQuestionsExist(questionIds);
+        }
+        if (targetStudentId != null) {
+            validateTargetStudentExists(targetStudentId);
+        }
+
+        assignment.update(null, targetType, targetGroup, targetStudentId, startDate, dueDate, questionIds, today);
+
+        return toDetail(assignment, today);
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        Assignment assignment = assignmentRepository.findById(id)
+            .orElseThrow(() -> new AssignmentNotFoundException("과제를 찾을 수 없습니다."));
+
+        assignmentRepository.delete(assignment);
+    }
+
+    private void validateQuestionsExist(List<Long> questionIds) {
+        Set<Long> distinctIds = new HashSet<>(questionIds);
+        List<Question> found = questionRepository.findAllById(distinctIds);
+        if (found.size() != distinctIds.size()) {
+            throw new QuestionNotFoundException("문제를 찾을 수 없습니다.");
+        }
+    }
+
+    private void validateTargetStudentExists(Long targetStudentId) {
+        Member member = memberReader.findById(targetStudentId)
+            .orElseThrow(() -> new StudentNotFoundException("학생을 찾을 수 없습니다."));
+        if (!member.isStudent()) {
+            throw new StudentNotFoundException("학생을 찾을 수 없습니다.");
+        }
+    }
+
+    private AssignmentDetail toDetail(Assignment assignment, LocalDate today) {
         return new AssignmentDetail(
             assignment.getId(),
             assignment.getTitle(),
