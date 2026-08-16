@@ -1,0 +1,174 @@
+.student-assignment-list-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.student-assignment-list-header h1 {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text);
+}
+
+.student-assignment-list-subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.student-assignment-list-content {
+  min-height: 8rem;
+}
+
+.student-assignment-list-status {
+  color: var(--color-text-muted);
+}
+
+.student-assignment-list-empty {
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--color-text-muted);
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.student-assignment-list-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+}
+
+.student-assignment-list-error p {
+  margin: 0;
+}
+
+.student-assignment-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.student-assignment-table th,
+.student-assignment-table td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.875rem;
+}
+
+.student-assignment-table th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  background-color: var(--color-primary-soft);
+}
+
+.student-assignment-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.student-assignment-table-title {
+  max-width: 20rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-assignment-status-badge,
+.student-submission-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background-color: var(--color-primary-soft);
+}
+
+.student-assignment-status-in_progress {
+  color: var(--color-success);
+  background-color: var(--color-success-soft);
+}
+
+.student-assignment-status-closed {
+  color: var(--color-text-muted);
+  background-color: var(--color-border);
+}
+
+.student-submission-status-not_started {
+  color: var(--color-text-muted);
+  background-color: var(--color-border);
+}
+
+.student-submission-status-submitted {
+  color: var(--color-success);
+  background-color: var(--color-success-soft);
+}
+
+.student-assignment-progress-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.student-assignment-progress-track {
+  display: inline-block;
+  width: 5rem;
+  height: 0.375rem;
+  background-color: var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.student-assignment-progress-fill {
+  display: block;
+  height: 100%;
+  background-color: var(--color-primary);
+  border-radius: inherit;
+}
+
+.student-assignment-progress-value {
+  min-width: 2.5rem;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.student-assignment-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.student-assignment-pagination-status {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 720px) {
+  .student-assignment-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
