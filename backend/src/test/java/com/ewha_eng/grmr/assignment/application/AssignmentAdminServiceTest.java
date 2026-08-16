@@ -3,6 +3,7 @@ package com.ewha_eng.grmr.assignment.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 import com.ewha_eng.grmr.assignment.domain.Assignment;
@@ -83,6 +84,7 @@ class AssignmentAdminServiceTest {
         Assignment classAssignment = classAssignment();
         when(assignmentRepository.search(AssignmentStatus.IN_PROGRESS, "복습", FIXED_TODAY, PageRequest.of(0, 20)))
             .thenReturn(new PageImpl<>(List.of(classAssignment)));
+        when(submissionProgressPort.progressFor(isNull())).thenReturn(new AssignmentSubmissionProgress(4, 1));
 
         Page<AssignmentListItem> result = service.search(AssignmentStatus.IN_PROGRESS, "복습", 0, 20);
 
@@ -92,6 +94,7 @@ class AssignmentAdminServiceTest {
         assertThat(item.targetDisplay()).isEqualTo("중1 A반");
         assertThat(item.status()).isEqualTo(AssignmentStatus.IN_PROGRESS);
         assertThat(item.questionCount()).isEqualTo(2);
+        assertThat(item.submissionProgress()).isEqualTo(new AssignmentSubmissionProgress(4, 1));
     }
 
     @Test
@@ -106,6 +109,7 @@ class AssignmentAdminServiceTest {
         when(assignmentRepository.search(null, null, FIXED_TODAY, PageRequest.of(0, 20)))
             .thenReturn(new PageImpl<>(List.of(studentAssignment)));
         when(memberReader.findById(501L)).thenReturn(Optional.of(student));
+        when(submissionProgressPort.progressFor(isNull())).thenReturn(AssignmentSubmissionProgress.zero());
 
         Page<AssignmentListItem> result = service.search(null, null, 0, 20);
 

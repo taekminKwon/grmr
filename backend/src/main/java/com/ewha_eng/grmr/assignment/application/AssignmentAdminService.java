@@ -58,6 +58,8 @@ public class AssignmentAdminService {
             assignment.getId(),
             assignment.getTitle(),
             assignment.getTargetType(),
+            assignment.getTargetGroup(),
+            assignment.getTargetStudentId(),
             resolveTargetDisplay(assignment),
             assignment.status(today),
             assignment.getStartDate(),
@@ -72,11 +74,14 @@ public class AssignmentAdminService {
             assignment.getId(),
             assignment.getTitle(),
             assignment.getTargetType(),
+            assignment.getTargetGroup(),
+            assignment.getTargetStudentId(),
             resolveTargetDisplay(assignment),
             assignment.status(today),
             assignment.getStartDate(),
             assignment.getDueDate(),
-            assignment.getQuestionIds().size()
+            assignment.getQuestionIds().size(),
+            submissionProgressPort.progressFor(assignment.getId())
         );
     }
 

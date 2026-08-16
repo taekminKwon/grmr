@@ -8,10 +8,13 @@ public record AssignmentListItem(
     Long id,
     String title,
     AssignmentTargetType targetType,
+    String targetGroup,
+    Long targetStudentId,
     String targetDisplay,
     AssignmentStatus status,
     LocalDate startDate,
     LocalDate dueDate,
-    int questionCount
+    int questionCount,
+    AssignmentSubmissionProgress submissionProgress
 ) {
 }

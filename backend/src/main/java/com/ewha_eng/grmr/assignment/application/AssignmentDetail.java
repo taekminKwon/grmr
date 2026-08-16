@@ -9,6 +9,8 @@ public record AssignmentDetail(
     Long id,
     String title,
     AssignmentTargetType targetType,
+    String targetGroup,
+    Long targetStudentId,
     String targetDisplay,
     AssignmentStatus status,
     LocalDate startDate,
