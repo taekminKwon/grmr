@@ -70,16 +70,32 @@ describe('AdminPage', () => {
     expect(screen.queryByRole('link', { name: 'Questions' })).toBeNull()
   })
 
+  it('links to the Assignment list as a functional, non-current navigation item', () => {
+    seedAdminSession()
+    renderAdminPage()
+
+    const assignmentsLink = screen.getByRole('link', { name: 'Assignments' })
+    expect(assignmentsLink.getAttribute('href')).toBe('/admin/assignments')
+    expect(assignmentsLink.getAttribute('aria-current')).toBeNull()
+  })
+
+  it('hides the Assignment list navigation item for a STUDENT session', () => {
+    seedStudentSession()
+    renderAdminPage()
+
+    expect(screen.queryByRole('link', { name: 'Assignments' })).toBeNull()
+  })
+
   it('lists the remaining navigation items as non-interactive and marked coming soon', () => {
     seedAdminSession()
     renderAdminPage()
 
-    for (const label of ['Assignments', 'Students', 'Study Records']) {
+    for (const label of ['Students', 'Study Records']) {
       expect(screen.queryByRole('link', { name: label })).toBeNull()
       expect(screen.queryByRole('button', { name: label })).toBeNull()
       expect(screen.getByText(label)).toBeDefined()
     }
-    expect(screen.getAllByText('Coming soon')).toHaveLength(3)
+    expect(screen.getAllByText('Coming soon')).toHaveLength(2)
   })
 
   it('logs out, clears the session, and returns to /login', () => {
