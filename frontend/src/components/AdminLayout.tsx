@@ -4,14 +4,15 @@ import { useAuth } from '../auth/useAuth'
 import Button from './Button'
 import './AdminLayout.css'
 
-type AdminNavKey = 'dashboard' | 'questions'
+type AdminNavKey = 'dashboard' | 'questions' | 'assignments'
 
 const NAV_ITEMS: { key: AdminNavKey; label: string; to: string; adminOnly?: boolean }[] = [
   { key: 'dashboard', label: 'Dashboard', to: '/admin' },
   { key: 'questions', label: 'Questions', to: '/admin/questions', adminOnly: true },
+  { key: 'assignments', label: 'Assignments', to: '/admin/assignments', adminOnly: true },
 ]
 
-const COMING_SOON_NAV_ITEMS = ['Assignments', 'Students', 'Study Records']
+const COMING_SOON_NAV_ITEMS = ['Students', 'Study Records']
 
 function AdminLayout({ active, children }: { active: AdminNavKey; children: ReactNode }) {
   const { session, logout } = useAuth()
