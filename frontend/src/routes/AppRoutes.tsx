@@ -8,6 +8,7 @@ import LoginPage from '../pages/LoginPage'
 import QuestionCreatePage from '../pages/QuestionCreatePage'
 import QuestionDetailPage from '../pages/QuestionDetailPage'
 import QuestionListPage from '../pages/QuestionListPage'
+import StudentAssignmentListPage from '../pages/StudentAssignmentListPage'
 import StudentHistoryDetailPage from '../pages/StudentHistoryDetailPage'
 import StudentHistoryListPage from '../pages/StudentHistoryListPage'
 import StudentPage from '../pages/StudentPage'
@@ -87,6 +88,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="STUDENT">
             <StudentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/assignments"
+        element={
+          <ProtectedRoute requiredRole="STUDENT">
+            <StudentAssignmentListPage />
           </ProtectedRoute>
         }
       />
