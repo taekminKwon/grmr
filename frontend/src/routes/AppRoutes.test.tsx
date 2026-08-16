@@ -317,6 +317,58 @@ describe('AppRoutes', () => {
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
   })
 
+  it('redirects unauthenticated access to /admin/assignments/:id back to /login', () => {
+    renderAt('/admin/assignments/7')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the Assignment detail for an authenticated admin at /admin/assignments/:id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, {
+          id: 7,
+          title: '현재완료 시제 연습',
+          targetType: 'CLASS',
+          targetGroup: '중1 A반',
+          target: '중1 A반',
+          startDate: '2026-08-03',
+          dueDate: '2026-08-10',
+          progress: 40,
+          status: '진행 중',
+          questions: [],
+        }),
+      ),
+    )
+    seedAdminSession()
+
+    renderAt('/admin/assignments/7')
+
+    expect(screen.getByRole('heading', { name: '과제 상세' })).toBeDefined()
+    await waitFor(() => expect(screen.getByText('현재완료 시제 연습')).toBeDefined())
+  })
+
+  it('renders a forbidden state for an authenticated STUDENT at /admin/assignments/:id', () => {
+    seedStudentSession()
+
+    renderAt('/admin/assignments/7')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '과제 상세' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /admin/assignments/:id when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/admin/assignments/7')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
+
   it('shows the Assignments link in the admin navigation', () => {
     seedAdminSession()
 
