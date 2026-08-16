@@ -13,6 +13,8 @@ const NOT_FOUND_MESSAGE = '과제를 찾을 수 없습니다.'
 const FORBIDDEN_MESSAGE = '과제를 조회할 권한이 없습니다. 관리자 계정으로 로그인했는지 확인해주세요.'
 const SESSION_EXPIRED_MESSAGE = '세션이 만료되었습니다. 다시 로그인해주세요.'
 const INVALID_ID_MESSAGE = '잘못된 과제 번호입니다.'
+const DELETE_GENERIC_ERROR_MESSAGE = '과제를 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.'
+const DELETE_FORBIDDEN_MESSAGE = '과제를 삭제할 권한이 없습니다. 관리자 계정으로 로그인했는지 확인해주세요.'
 
 type ErrorKind = 'expired' | 'forbidden' | 'not-found' | 'generic'
 
@@ -40,6 +42,10 @@ function AssignmentDetailPage() {
 
   const [retryToken, setRetryToken] = useState(0)
   const [result, setResult] = useState<FetchResult | null>(null)
+
+  const [deleteStep, setDeleteStep] = useState<'idle' | 'confirm'>('idle')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<{ message: string; expired: boolean } | null>(null)
 
   const accessToken = session?.accessToken
 
@@ -88,6 +94,41 @@ function AssignmentDetailPage() {
 
   function handleRetry() {
     setRetryToken((current) => current + 1)
+  }
+
+  function handleDeleteStart() {
+    setDeleteStep('confirm')
+    setDeleteError(null)
+  }
+
+  function handleDeleteCancel() {
+    setDeleteStep('idle')
+    setDeleteError(null)
+  }
+
+  async function handleDeleteConfirm() {
+    if (!accessToken || assignmentId === null) {
+      return
+    }
+
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await assignmentApi.deleteAssignment(accessToken, assignmentId)
+      navigate('/admin/assignments')
+    } catch (error) {
+      if (error instanceof AssignmentApiError && error.status === 401) {
+        setDeleteError({ message: SESSION_EXPIRED_MESSAGE, expired: true })
+      } else if (error instanceof AssignmentApiError && error.status === 403) {
+        setDeleteError({ message: DELETE_FORBIDDEN_MESSAGE, expired: false })
+      } else if (error instanceof AssignmentApiError) {
+        setDeleteError({ message: error.message, expired: false })
+      } else {
+        setDeleteError({ message: DELETE_GENERIC_ERROR_MESSAGE, expired: false })
+      }
+    } finally {
+      setDeleting(false)
+    }
   }
 
   if (assignmentId === null) {
@@ -207,6 +248,42 @@ function AssignmentDetailPage() {
                 </table>
               )}
             </section>
+
+            <div className="assignment-detail-actions">
+              <Button type="button" onClick={() => navigate(`/admin/assignments/${assignmentId}/edit`)}>
+                과제 수정
+              </Button>
+              {deleteStep === 'idle' && (
+                <Button type="button" variant="secondary" onClick={handleDeleteStart}>
+                  과제 삭제
+                </Button>
+              )}
+            </div>
+
+            {deleteStep === 'confirm' && (
+              <div className="assignment-detail-delete-confirm">
+                <p>정말 이 과제를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+                <div className="assignment-detail-delete-confirm-actions">
+                  <Button type="button" onClick={handleDeleteConfirm} disabled={deleting}>
+                    {deleting ? '삭제 중...' : '삭제 확인'}
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={handleDeleteCancel} disabled={deleting}>
+                    취소
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {deleteError && (
+              <div className="assignment-detail-delete-error" role="alert">
+                <p>{deleteError.message}</p>
+                {deleteError.expired && (
+                  <Button type="button" onClick={handleReSignIn}>
+                    다시 로그인
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

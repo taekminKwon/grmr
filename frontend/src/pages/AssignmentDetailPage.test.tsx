@@ -30,6 +30,7 @@ function renderAssignmentDetailPage(initialEntry = '/admin/assignments/7') {
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/admin/assignments/:id" element={<AssignmentDetailPage />} />
+          <Route path="/admin/assignments/:id/edit" element={<div>Assignment edit landing</div>} />
           <Route path="/admin/assignments" element={<div>Assignment list landing</div>} />
           <Route path="/login" element={<div>Login landing</div>} />
         </Routes>
@@ -184,5 +185,163 @@ describe('AssignmentDetailPage', () => {
 
     fireEvent.click(screen.getByRole('link', { name: '목록으로 돌아가기' }))
     expect(screen.getByText('Assignment list landing')).toBeDefined()
+  })
+
+  it('has an edit action that navigates to the edit route for this assignment', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, rawAssignment)))
+    seedAdminSession()
+
+    renderAssignmentDetailPage()
+    await waitFor(() => expect(screen.getByText('현재완료 시제 연습')).toBeDefined())
+
+    fireEvent.click(screen.getByRole('button', { name: '과제 수정' }))
+    expect(screen.getByText('Assignment edit landing')).toBeDefined()
+  })
+
+  describe('delete', () => {
+    it('requires explicit confirmation before calling the delete API, and cancel does nothing', async () => {
+      const fetchSpy = vi.fn().mockResolvedValue(jsonResponse(200, rawAssignment))
+      vi.stubGlobal('fetch', fetchSpy)
+      seedAdminSession()
+
+      renderAssignmentDetailPage()
+      await waitFor(() => expect(screen.getByText('현재완료 시제 연습')).toBeDefined())
+
+      fireEvent.click(screen.getByRole('button', { name: '과제 삭제' }))
+      expect(screen.getByText('정말 이 과제를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')).toBeDefined()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+      fireEvent.click(screen.getByRole('button', { name: '취소' }))
+
+      expect(screen.queryByText('정말 이 과제를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')).toBeNull()
+      expect(screen.getByRole('button', { name: '과제 삭제' })).toBeDefined()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('현재완료 시제 연습')).toBeDefined()
+    })
+
+    it('DELETEs the assignment on confirm and navigates to the list on success', async () => {
+      const fetchSpy = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse(200, rawAssignment))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      vi.stubGlobal('fetch', fetchSpy)
+      seedAdminSession()
+
+      renderAssignmentDetailPage()
+      await waitFor(() => expect(screen.getByText('현재완료 시제 연습')).toBeDefined())
+
+      fireEvent.click(screen.getByRole('button', { name: '과제 삭제' }))
+      fireEvent.click(screen.getByRole('button', { name: '삭제 확인' }))
+
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2))
+      const [url, init] = fetchSpy.mock.calls[1]
+      expect(url).toBe('/api/assignments/7')
+      expect(init.method).toBe('DELETE')
+      expect(init.headers.Authorization).toBe('Bearer access-token-abc')
+
+      await waitFor(() => expect(screen.getByText('Assignment list landing')).toBeDefined())
+    })
+
+    it('shows a session-expired state on delete 401 without navigating, and returns to /login after re-sign-in', async () => {
+      const fetchSpy = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse(200, rawAssignment))
+        .mockResolvedValueOnce(jsonResponse(401, { code: 'TOKEN_EXPIRED', message: '세션이 만료되었습니다.' }))
+      vi.stubGlobal('fetch', fetchSpy)
+      seedAdminSession()
+
+      renderAssignmentDetailPage()
+      await waitFor(() => expect(screen.getByText('현재완료 시제 연습')).toBeDefined())
+
+      fireEvent.click(screen.getByRole('button', { name: '과제 삭제' }))
+      fireEvent.click(screen.getByRole('button', { name: '삭제 확인' }))
+
+      await waitFor(() =>
+        expect(screen.getAllByRole('alert').some((el) => el.textContent?.includes('세션이 만료되었습니다.'))).toBe(
+          true,
+        ),
+      )
+      expect(screen.queryByText('Assignment list landing')).toBeNull()
+
+      fireEvent.click(screen.getByRole('button', { name: '다시 로그인' }))
+      expect(screen.getByText('Login landing')).toBeDefined()
+      expect(sessionStorage.getItem('grmr.auth.session')).toBeNull()
+    })
+
+    it('shows a forbidden message on delete 403 without navigating', async () => {
+      const fetchSpy = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse(200, rawAssignment))
+        .mockResolvedValueOnce(jsonResponse(403, { code: 'FORBIDDEN', message: '권한이 없습니다.' }))
+      vi.stubGlobal('fetch', fetchSpy)
+      seedAdminSession()
+
+      renderAssignmentDetailPage()
+      await waitFor(() => expect(screen.getByText('현재완료 시제 연습')).toBeDefined())
+
+      fireEvent.click(screen.getByRole('button', { name: '과제 삭제' }))
+      fireEvent.click(screen.getByRole('button', { name: '삭제 확인' }))
+
+      await waitFor(() =>
+        expect(
+          screen.getAllByRole('alert').some((el) => el.textContent?.includes('과제를 삭제할 권한이 없습니다.')),
+        ).toBe(true),
+      )
+      expect(screen.queryByText('Assignment list landing')).toBeNull()
+    })
+
+    it('shows the backend message on a 409 conflict and does not treat it as a successful delete', async () => {
+      const fetchSpy = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse(200, rawAssignment))
+        .mockResolvedValueOnce(
+          jsonResponse(409, { code: 'ASSIGNMENT_ALREADY_CLOSED', message: '마감된 과제는 삭제할 수 없습니다.' }),
+        )
+      vi.stubGlobal('fetch', fetchSpy)
+      seedAdminSession()
+
+      renderAssignmentDetailPage()
+      await waitFor(() => expect(screen.getByText('현재완료 시제 연습')).toBeDefined())
+
+      fireEvent.click(screen.getByRole('button', { name: '과제 삭제' }))
+      fireEvent.click(screen.getByRole('button', { name: '삭제 확인' }))
+
+      await waitFor(() =>
+        expect(
+          screen.getAllByRole('alert').some((el) => el.textContent?.includes('마감된 과제는 삭제할 수 없습니다.')),
+        ).toBe(true),
+      )
+      expect(screen.queryByText('Assignment list landing')).toBeNull()
+      expect(screen.getByText('현재완료 시제 연습')).toBeDefined()
+    })
+
+    it('shows a generic error and stays on the page on a network failure, allowing retry', async () => {
+      const fetchSpy = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse(200, rawAssignment))
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      vi.stubGlobal('fetch', fetchSpy)
+      seedAdminSession()
+
+      renderAssignmentDetailPage()
+      await waitFor(() => expect(screen.getByText('현재완료 시제 연습')).toBeDefined())
+
+      fireEvent.click(screen.getByRole('button', { name: '과제 삭제' }))
+      fireEvent.click(screen.getByRole('button', { name: '삭제 확인' }))
+
+      await waitFor(() =>
+        expect(
+          screen
+            .getAllByRole('alert')
+            .some((el) => el.textContent?.includes('네트워크 오류가 발생했습니다. 연결 상태를 확인해주세요.')),
+        ).toBe(true),
+      )
+      expect(screen.queryByText('Assignment list landing')).toBeNull()
+
+      fireEvent.click(screen.getByRole('button', { name: '삭제 확인' }))
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(3))
+      await waitFor(() => expect(screen.getByText('Assignment list landing')).toBeDefined())
+    })
   })
 })

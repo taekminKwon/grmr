@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
 import AssignmentCreatePage from '../pages/AssignmentCreatePage'
 import AssignmentDetailPage from '../pages/AssignmentDetailPage'
+import AssignmentEditPage from '../pages/AssignmentEditPage'
 import AssignmentListPage from '../pages/AssignmentListPage'
 import LoginPage from '../pages/LoginPage'
 import QuestionCreatePage from '../pages/QuestionCreatePage'
@@ -70,6 +71,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="ADMIN">
             <AssignmentDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/assignments/:id/edit"
+        element={
+          <ProtectedRoute requiredRole="ADMIN">
+            <AssignmentEditPage />
           </ProtectedRoute>
         }
       />
