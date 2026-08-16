@@ -15,6 +15,8 @@
 - 인증: `/api/auth/**`를 제외한 모든 엔드포인트는 `Authorization: Bearer {accessToken}` 헤더가 필요합니다.
   - 토큰 누락/만료/위조: `401 Unauthorized` — `{ "code": "TOKEN_EXPIRED", "message": "..." }` 또는 `{ "code": "TOKEN_INVALID", "message": "..." }`
   - 권한 부족(역할 불일치, 예: 학생이 관리자 API 호출): `403 Forbidden` — `{ "code": "FORBIDDEN", "message": "접근 권한이 없습니다." }`
+  - `/api/questions/**`, `/api/assignments/**`, `/api/students/**`, `/api/study-records`, `/api/dashboard/admin`은 `ROLE_ADMIN`, `/api/me/**`는 `ROLE_STUDENT`만 접근할 수 있습니다(`global/security/SecurityConfig.java` 기준).
+- `/api/me/**` 엔드포인트는 학생 식별을 항상 access token의 `memberId`(subject)로부터 얻으며, 요청 바디·경로·쿼리로 학생 ID를 받지 않습니다(다른 학생의 자원에 접근할 방법 자체가 없음). 이 규칙은 모든 `/api/me/**` 엔드포인트에 공통이며, 이 문서의 각 절에서 반복 설명하지 않습니다.
 
 ---
 
@@ -376,6 +378,41 @@
 
 ## 과제 (Assignment)
 
+**Phase 3(MVP) 구현 범위**입니다. `/api/assignments/**` 전체가 `ROLE_ADMIN` 전용입니다([공통 규칙](#공통-규칙) 참고).
+
+### 상태(`status`) 계산 규칙
+
+과제 상태는 `예정`/`진행 중`/`마감` 세 값이며, 문제 상태와 달리 **별도의 상태 변경 API가 없고 서버가 `startDate`/`dueDate`를 기준으로 매 요청마다 자동 계산**합니다(별도 배치/스케줄러 없이 조회 시점에 계산):
+
+| 조건(오늘 = 서버 기준일) | 상태 |
+| --- | --- |
+| 오늘 `<` `startDate` | `예정` |
+| `startDate` ≤ 오늘 ≤ `dueDate` | `진행 중` |
+| 오늘 `>` `dueDate` | `마감` |
+
+경계일(`startDate` 당일, `dueDate` 당일)은 모두 `진행 중`에 포함됩니다. 생성 직후 상태는 `startDate`가 오늘이거나 과거이면 `진행 중`, 미래이면 `예정`입니다.
+
+**검증 규칙**: `startDate ≤ dueDate`가 항상 성립해야 합니다. 생성(`POST`)·수정(`PATCH`) 시 이를 위반하면 `400 Bad Request`(`INVALID_ASSIGNMENT`)를 반환합니다. 두 값이 같은 경우(당일 시작·당일 마감)는 허용됩니다.
+
+도메인 용어 정의는 [feature-spec.md](feature-spec.md#도메인-용어)를 참고하세요.
+
+### 대상(target) 지정
+
+새로운 반/그룹 데이터 모델을 만들지 않고 [학생(Student)](#학생-student-관리자-관점)의 기존 필드를 재사용합니다.
+
+| `targetType` | 대상 지정 필드 | 설명 |
+| --- | --- | --- |
+| `CLASS` | `targetGroup` (string, ✓) | `Student.group`과 동일한 문자열(예: `"중1 A반"`). 해당 그룹에 속한 모든 학생이 대상. |
+| `STUDENT` | `targetStudentId` (long, ✓) | `Student.id`(=`/api/students/{id}`의 `id`). 해당 학생 1명만 대상. |
+
+`targetType`에 해당하지 않는 필드는 요청에 포함하지 않거나 무시됩니다. 응답의 `target`은 화면 표시용 문자열입니다(`targetType: CLASS`면 `targetGroup` 값 그대로, `STUDENT`면 학생 이름).
+
+### 문제 순서
+
+`questionIds` 배열의 순서가 곧 학생에게 노출되는 풀이 순서입니다. 응답의 `questions[].order`는 1부터 시작하는 순번으로, 배열 인덱스와 1:1 대응합니다. `PATCH`로 `questionIds`를 다시 지정하면 순서를 포함해 전체가 교체됩니다(부분 순서 변경 불가).
+
+---
+
 ### GET `/api/assignments` — 과제 목록 조회
 
 **Query Parameters**: `status`(`예정`/`진행 중`/`마감`), `keyword`, `page`, `size`
@@ -384,11 +421,12 @@
 ```json
 {
   "content": [
-    { "id": 1, "title": "현재완료 시제 연습", "target": "중1 A반", "dueDate": "2026-08-05", "progress": 84, "status": "진행 중" }
+    { "id": 1, "title": "현재완료 시제 연습", "targetType": "CLASS", "targetGroup": "중1 A반", "target": "중1 A반", "startDate": "2026-08-03", "dueDate": "2026-08-05", "progress": 84, "status": "진행 중" }
   ],
   "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
 }
 ```
+`progress`는 제출률(관리자 관점)입니다 — "대상 학생 중 과제를 최종 제출(제출 상태 `SUBMITTED`)한 학생 수 ÷ 전체 대상 학생 수"(정의: [feature-spec.md](feature-spec.md#도메인-용어)). 학생 관점의 `progress`([내 과제](#내-과제-phase-3-mvp-구현-범위) 참고)와 계산 기준이 다르므로 혼동하지 않습니다.
 
 ---
 
@@ -400,15 +438,18 @@
   "id": 1,
   "title": "현재완료 시제 연습",
   "targetType": "CLASS",
+  "targetGroup": "중1 A반",
   "target": "중1 A반",
+  "startDate": "2026-08-03",
   "dueDate": "2026-08-05",
   "status": "진행 중",
   "progress": 84,
   "questions": [
-    { "id": 1024, "text": "He has lived here _____ 2010.", "category": "현재완료" }
+    { "id": 1024, "order": 1, "text": "He has lived here _____ 2010.", "category": "현재완료" }
   ]
 }
 ```
+개별 학생 대상인 경우 `targetType: "STUDENT"`, `targetStudentId`(long)가 `targetGroup` 대신 포함됩니다.
 
 **Error**: `404 Not Found` `{ "code": "ASSIGNMENT_NOT_FOUND", "message": "과제를 찾을 수 없습니다." }`
 
@@ -422,15 +463,18 @@
 | --- | --- | --- | --- |
 | `title` | string | ✓ | 과제명 |
 | `targetType` | string | ✓ | `CLASS` 또는 `STUDENT` |
-| `targetId` | string | ✓ | 반 이름 또는 학생 ID |
+| `targetGroup` | string | `targetType`이 `CLASS`일 때 ✓ | 반 이름(`Student.group`과 동일한 값) |
+| `targetStudentId` | long | `targetType`이 `STUDENT`일 때 ✓ | 대상 학생 ID |
+| `startDate` | date | ✓ | 시작일 (`YYYY-MM-DD`). `dueDate`보다 늦을 수 없음 |
 | `dueDate` | date | ✓ | 마감일 (`YYYY-MM-DD`) |
-| `questionIds` | long[] | ✓ | 포함할 문제 ID 목록 (최소 1개) |
+| `questionIds` | long[] | ✓ | 포함할 문제 ID 목록, 순서대로(최소 1개) |
 
 ```json
 {
   "title": "현재완료 시제 연습",
   "targetType": "CLASS",
-  "targetId": "중1 A반",
+  "targetGroup": "중1 A반",
+  "startDate": "2026-08-08",
   "dueDate": "2026-08-10",
   "questionIds": [1024, 1023, 1021]
 }
@@ -441,20 +485,29 @@
 {
   "id": 4,
   "title": "현재완료 시제 연습",
+  "targetType": "CLASS",
+  "targetGroup": "중1 A반",
   "target": "중1 A반",
+  "startDate": "2026-08-08",
   "dueDate": "2026-08-10",
   "status": "예정",
   "progress": 0
 }
 ```
+`status`는 생성 시점의 `startDate`/`dueDate`로 곧바로 계산됩니다 — 위 예시처럼 `startDate`가 미래면 `예정`, 오늘이거나 과거면 `진행 중`입니다(위 [상태 계산 규칙](#상태status-계산-규칙) 참고).
 
-**Error**: `400 Bad Request` `{ "code": "INVALID_ASSIGNMENT", "message": "문제를 1개 이상 선택해야 합니다." }`
+**Error**:
+- `400 Bad Request` `{ "code": "INVALID_ASSIGNMENT", "message": "문제를 1개 이상 선택해야 합니다." }` — `questionIds`가 비어 있는 경우
+- `400 Bad Request` `{ "code": "INVALID_ASSIGNMENT", "message": "targetType이 CLASS이면 targetGroup이 필수입니다." }` — `targetType`에 대응하는 대상 필드가 누락된 경우(반대 방향도 동일한 코드)
+- `400 Bad Request` `{ "code": "INVALID_ASSIGNMENT", "message": "시작일은 마감일보다 늦을 수 없습니다." }` — `startDate > dueDate`인 경우
+- `404 Not Found` `{ "code": "QUESTION_NOT_FOUND", "message": "문제를 찾을 수 없습니다." }` — `questionIds` 중 존재하지 않는 문제 ID가 있는 경우
+- `404 Not Found` `{ "code": "STUDENT_NOT_FOUND", "message": "학생을 찾을 수 없습니다." }` — `targetStudentId`가 존재하지 않는 경우
 
 ---
 
 ### PATCH `/api/assignments/{id}` — 과제 수정
 
-**Request Body**: `targetType`, `targetId`, `dueDate`, `questionIds` 중 변경할 항목만 포함
+**Request Body**: `targetType`+(`targetGroup`|`targetStudentId`), `startDate`, `dueDate`, `questionIds` 중 변경할 항목만 포함. `targetType`을 바꾸는 경우 그에 대응하는 대상 필드도 함께 보내야 합니다. `startDate`/`dueDate` 중 하나만 보내는 경우에도 저장된 값과 합쳐 `startDate ≤ dueDate` 검증을 수행합니다.
 
 ```json
 { "dueDate": "2026-08-12" }
@@ -462,7 +515,7 @@
 
 **Response** `200 OK`: 수정된 과제 상세 (GET 상세 조회와 동일 구조)
 
-**Error**: `404 Not Found`(`ASSIGNMENT_NOT_FOUND`), `409 Conflict` `{ "code": "ASSIGNMENT_ALREADY_CLOSED", "message": "마감된 과제는 수정할 수 없습니다." }`
+**Error**: `404 Not Found`(`ASSIGNMENT_NOT_FOUND`), `400 Bad Request`(`INVALID_ASSIGNMENT`, POST와 동일한 검증 규칙), `409 Conflict` `{ "code": "ASSIGNMENT_ALREADY_CLOSED", "message": "마감된 과제는 수정할 수 없습니다." }` — 현재 상태가 `마감`인 경우(위 자동 계산 규칙 기준)
 
 ---
 
@@ -512,7 +565,7 @@
 
 `type`의 API 쿼리 값과 응답 값은 항상 `ASSIGNMENT`(과제) 또는 `PRACTICE`(자유 학습)입니다. "과제"/"자유 학습"은 화면에 표시하는 한글 라벨일 뿐, API 쿼리·응답 값으로는 사용하지 않습니다.
 
-**Phase 2 범위**: 과제(Assignment) 기능이 아직 없으므로 Phase 2에서는 `type: "PRACTICE"` 기록만 생성됩니다. 아래 두 엔드포인트는 여러 학생/기간에 걸친 일자별 집계(rollup) 조회용이며, 제출 건별 상세(스냅샷 포함)는 이 문서의 [자유 학습(Practice)](#자유-학습-practice-phase-2-구현-범위) 절의 `GET /api/me/practice/records`/`GET /api/me/practice/records/{id}`를 사용합니다. `StudyRecord` 자체(스냅샷 필드, 불변성, 재응시 처리)에 대한 정의도 그 절에서 함께 다룹니다.
+**Phase 2/3 범위**: Phase 2에서는 `type: "PRACTICE"` 기록만 생성되었고, **Phase 3(MVP)부터 과제 최종 제출 시 과제에 포함된 문제마다(미응답 문제 포함) `type: "ASSIGNMENT"` 기록이 일괄 생성**됩니다(임시 저장 시점이 아니라 최종 제출 시점에 한 번에 생성됨). 아래 두 엔드포인트는 여러 학생/기간에 걸친 일자별 집계(rollup) 조회용입니다. 자유 학습의 제출 건별 상세(스냅샷 포함)는 이 문서의 [자유 학습(Practice)](#자유-학습-practice-phase-2-구현-범위) 절의 `GET /api/me/practice/records`/`GET /api/me/practice/records/{id}`를 사용합니다. `StudyRecord` 자체(스냅샷 필드, 불변성, 재응시 처리)에 대한 정의도 그 절에서, 과제 제출분 고유 규칙은 [내 과제](#내-과제-phase-3-mvp-구현-범위) 절의 "StudyRecord (과제 제출분)"에서 다룹니다. 과제의 제출 건별 상세(문제별 정답·해설·정오 여부)는 제출 후 [`GET /api/me/assignments/{assignmentId}/result`](#get-apimeassignmentsassignmentidresult--최종-제출-결과-조회)로 확인합니다 — 자유 학습의 `GET /api/me/practice/records/{id}`에 대응하는 과제용 엔드포인트이며, 몇 번이든 재조회할 수 있습니다. 다만 이 엔드포인트는 과제 1건의 최종 결과만 반환하므로, 여러 과제/기간을 한 화면에서 훑어보는 이력은 여전히 위 두 rollup 엔드포인트로 확인합니다.
 
 ### GET `/api/study-records` — 학습 이력 조회 (관리자용)
 
@@ -598,69 +651,225 @@
 
 ## 내 과제 / 문제 풀이 (학생)
 
-**Phase 2 구현 범위**: 이 문서 중 [자유 학습(Practice)](#자유-학습-practice-phase-2-구현-범위) 절만 Phase 2에서 구현합니다. 아래 "내 과제" 절(과제 목록/과제 문제/과제 답안 제출)은 과제(Assignment) 기능 자체가 아직 없어 계약만 정의된 향후 범위이며 변경하지 않았습니다.
+**Phase 2/3 구현 범위**: 이 문서 중 [자유 학습(Practice)](#자유-학습-practice-phase-2-구현-범위) 절은 Phase 2에서, 아래 **내 과제** 절은 Phase 3(MVP)에서 구현합니다. `/api/me/**`이므로 `ROLE_STUDENT`만 접근할 수 있고, 학생 식별은 항상 access token의 `memberId`(subject)로부터 얻습니다([공통 규칙](#공통-규칙) 참고).
 
-### 내 과제 (향후 범위 — Phase 2 제외)
+### 내 과제 (Phase 3 MVP 구현 범위)
+
+과제 수행은 CBT(컴퓨터 기반 시험) 방식입니다. 문제마다 즉시 채점하는 자유 학습과 달리, 학생은 문제별 답안을 **임시 저장**만 하고 정답·해설·정오 여부·점수는 학생이 **최종 제출**을 호출한 순간에만 한 번에 계산되어 노출됩니다. 그 전까지는 어떤 응답에도 채점 관련 정보가 포함되지 않습니다. 제출 이후에는 [`GET .../result`](#get-apimeassignmentsassignmentidresult--최종-제출-결과-조회)로 동일한 채점 결과를 새로고침·재방문 등 몇 번이든 다시 조회할 수 있습니다(불변 스냅샷 기반이므로 재채점하지 않음).
+
+**대상 판정**: 학생이 접근 가능한 과제는 `targetType: STUDENT`이며 `targetStudentId`가 본인인 과제, 또는 `targetType: CLASS`이며 `targetGroup`이 본인의 `Student.group`과 같은 과제입니다. 그 외 과제에 대한 조회·저장·제출은 존재하지 않는 것과 동일하게 `404 Not Found`(`ASSIGNMENT_NOT_FOUND`)를 반환합니다(관리자 전용 자원 존재 여부를 노출하지 않기 위함 — [자유 학습 기록 상세](#get-apimepracticerecordsid--내-자유-학습-기록-상세)의 `404` 사용 방식과 동일한 원칙).
+
+**예정 과제 숨김 규칙**: 위 대상 판정을 통과하더라도, 과제 상태가 `예정`(오늘 `<` `startDate`)이면 아래 세 엔드포인트 모두 대상이 아닌 과제와 동일하게 `404 Not Found`(`ASSIGNMENT_NOT_FOUND`)를 반환하며, `GET /api/me/assignments` 목록에도 나타나지 않습니다. 시작일이 지나 상태가 `진행 중`으로 바뀌는 순간부터 정상적으로 노출·접근됩니다.
+
+**제출 상태(submissionStatus)와 생명주기**
+
+- 학생 1명 × 과제 1건마다 제출 상태를 가지며, 아직 `GET .../questions`를 한 번도 호출하지 않았다면 서버에 레코드가 없는 `NOT_STARTED`입니다(목록 응답에서만 나타나는 계산값이며, 실제로는 "레코드 없음"과 동일합니다).
+- `GET /api/me/assignments/{assignmentId}/questions`를 처음 호출하면 그 시점에 제출 상태가 `IN_PROGRESS`로 생성됩니다("시작하기"). 이미 `IN_PROGRESS`인 상태에서 다시 호출하면 기존 레코드와 임시 저장 값을 그대로 반환합니다("이어서 풀기") — 두 버튼은 동일한 엔드포인트 호출입니다.
+- `IN_PROGRESS`인 동안에는 [`PUT .../answers/{questionId}`](#put-apimeassignmentsassignmentidanswersquestionid--답안-임시-저장)로 답안을 자유롭게 저장·수정할 수 있습니다.
+- [`POST .../submit`](#post-apimeassignmentsassignmentidsubmit--최종-제출)을 호출하면 `SUBMITTED`로 전이되며 이후 되돌릴 수 없습니다. `SUBMITTED` 상태에서는 임시 저장(`PUT .../answers/{questionId}`)과 재제출(`POST .../submit`) 모두 `409 Conflict`로 거부됩니다.
+- 마감(`status: 마감`, `dueDate` 경과)된 과제는 제출 상태와 무관하게 임시 저장·최종 제출이 모두 `409 Conflict`(`ASSIGNMENT_CLOSED`)로 거부됩니다.
+
+**StudyRecord (과제 제출분) 및 채점 트랜잭션**
+
+- StudyRecord는 답안을 임시 저장할 때가 아니라 **최종 제출 시점에 한 번에** 생성됩니다. 그 시점까지 임시 저장되어 있던 문제마다 1건씩 생성되며(`type: ASSIGNMENT`), 자유 학습분과 동일하게 **불변**입니다(수정·삭제 API 없음).
+- 생성 시점에 원본 `Question`의 `category`/`level`/`text`/`choices`/`answer`(정답)/`explanation`을 스냅샷으로 저장합니다. 이후 관리자가 문제를 수정하거나 상태를 변경해도 이미 생성된 기록의 스냅샷은 바뀌지 않습니다 — [자유 학습 StudyRecord](#자유-학습-practice-phase-2-구현-범위)와 동일한 규칙입니다.
+- 과제 제출분은 추가로 **제출 대상 과제에 대한 참조**를 함께 저장합니다(진행률·이력 집계에 내부적으로 사용되며, 제출 응답 필드로 별도 노출하지는 않습니다).
+- **원자성**: "임시 저장된 모든 답안 채점 + 문제별 StudyRecord 일괄 생성 + 제출 상태를 `SUBMITTED`로 전이"는 하나의 DB 트랜잭션으로 처리됩니다. 트랜잭션 도중 오류가 발생하면 전부 롤백되어 StudyRecord가 일부만 생성되거나 제출 상태만 바뀌는 상태는 발생하지 않습니다(부분 성공 없음).
+- **중복 제출 방지**: 제출 상태를 `IN_PROGRESS` → `SUBMITTED`로 바꾸는 갱신은 조건부 갱신(현재 상태가 `IN_PROGRESS`일 때만 성공)으로 수행됩니다. 동시에 두 번 제출 요청이 들어와도 하나만 성공하고 트랜잭션이 커밋되며, 나머지 요청은 `409 Conflict`(`ASSIGNMENT_ALREADY_SUBMITTED`)를 받습니다 — StudyRecord가 중복 생성되는 경우는 없습니다.
+- **과제에 포함된 모든 문제마다 StudyRecord가 정확히 1건씩 생성됩니다** — 임시 저장이 없던 문제(한 번도 저장하지 않고 최종 제출한 경우)도 예외 없이 포함됩니다. 이 경우 `submittedAnswer: null`, `correct: false`로 스냅샷과 함께 기록됩니다. 미응답 문제까지 빠짐없이 기록해야 제출 시점의 전체 결과를(문제 수 포함) 이후 [`GET .../result`](#get-apimeassignmentsassignmentidresult--최종-제출-결과-조회)로 원본 `Question`이 수정·상태 변경되어도 그대로 재구성할 수 있습니다.
+- **구현 유의(nullable `submittedAnswer`)**: 자유 학습분(Practice) StudyRecord의 `submittedAnswer`는 제출 시 `answer`가 필수이므로 항상 값이 있는 문자열이지만, 과제 제출분(Assignment)은 미응답 문제의 스냅샷을 위해 `submittedAnswer`가 `null`일 수 있어야 합니다. 자유 학습 쪽의 "제출 시 `answer` 필수" 검증([자유 학습 StudyRecord](#자유-학습-practice-phase-2-구현-범위) 참고)은 이 변경과 무관하게 그대로 유지됩니다 — 두 학습 유형의 검증 규칙이 서로 다름을 구현 시 유의해야 합니다.
+- **진행률 계산(임시 저장 기준, 최종 제출 전)**: 학생의 특정 과제 진행률(%) = "이 학생이 그 과제의 문제 중 임시 저장한 답안이 있는 **서로 다른 `questionId`** 수 ÷ 과제의 전체 문제 수 × 100". 채점 여부·정답 여부와는 무관합니다(최종 제출 전에는 애초에 채점 자체가 이루어지지 않으므로).
+- `type`은 항상 `ASSIGNMENT`입니다. 이 값은 `GET /api/study-records`(관리자)와 `GET /api/me/history`(학생 본인)의 rollup 집계에도 반영됩니다.
+
+---
 
 #### GET `/api/me/assignments` — 내 과제 목록
+
+**Query Parameters**
+
+| 이름 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `page` | int | | 기본값 0 |
+| `size` | int | | 기본값 20 |
 
 **Response** `200 OK`
 ```json
 {
   "content": [
-    { "id": 1, "title": "현재완료 시제 연습", "dueDate": "2026-08-05", "progress": 40, "status": "진행 중" }
-  ]
+    { "id": 1, "title": "현재완료 시제 연습", "startDate": "2026-08-03", "dueDate": "2026-08-05", "status": "진행 중", "submissionStatus": "IN_PROGRESS", "progress": 40 }
+  ],
+  "page": 0, "size": 20, "totalElements": 1, "totalPages": 1
 }
 ```
+`progress`는 이 학생의 진행률(%)이며, 위 "StudyRecord (과제 제출분) 및 채점 트랜잭션"의 계산 방식(임시 저장 기준)을 따릅니다. `submissionStatus`는 `NOT_STARTED`/`IN_PROGRESS`/`SUBMITTED` 중 하나입니다. 상태가 `예정`인 과제는 이 목록에 나타나지 않습니다(위 예정 과제 숨김 규칙 참고). 마감일 오름차순으로 정렬합니다.
 
-#### GET `/api/me/assignments/{assignmentId}/questions` — 과제 문제 목록 (풀이용)
+---
 
-정답·해설은 제출 전까지 노출하지 않습니다.
+#### GET `/api/me/assignments/{assignmentId}/questions` — 과제 문제 목록 (풀이용, 시작/재개)
+
+이 엔드포인트를 처음 호출하는 시점에 제출 상태(submissionStatus)가 `IN_PROGRESS`로 생성됩니다("시작하기"). 이미 시작한 뒤 다시 호출하면 저장된 임시 답안과 함께 그대로 조회됩니다("이어서 풀기"). 정답·해설·정오 여부는 제출 상태와 무관하게 이 응답에 절대 포함되지 않습니다.
 
 **Response** `200 OK`
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `assignmentId` | long | |
+| `submissionStatus` | string | `IN_PROGRESS` 또는 `SUBMITTED` (이 엔드포인트 호출 시점에 `NOT_STARTED`는 항상 `IN_PROGRESS`로 생성되므로 나타나지 않음) |
+| `questions[].id` | long | 문제 ID |
+| `questions[].order` | int | 풀이 순서(1부터 시작, 과제 생성/수정 시 지정한 `questionIds` 순서) |
+| `questions[].category` | string | |
+| `questions[].level` | string | |
+| `questions[].text` | string | |
+| `questions[].choices` | string[] | |
+| `questions[].myAnswer` | string \| null | 이 학생이 임시 저장한 답(없으면 `null`). 정답 여부는 포함하지 않음 |
+
 ```json
 {
   "assignmentId": 1,
+  "submissionStatus": "IN_PROGRESS",
   "questions": [
-    { "id": 1024, "order": 1, "category": "현재완료", "text": "He has lived here _____ 2010.", "choices": ["for", "since", "during", "from"] }
+    { "id": 1024, "order": 1, "category": "현재완료", "level": "보통", "text": "He has lived here _____ 2010.", "choices": ["for", "since", "during", "from"], "myAnswer": "since" },
+    { "id": 1023, "order": 2, "category": "현재완료", "level": "보통", "text": "...", "choices": ["for", "since", "during", "from"], "myAnswer": null }
   ]
 }
 ```
+"이어서 풀기"는 `myAnswer: null`인 첫 문제(가장 작은 `order`)로 이동하는 방식으로 클라이언트가 구현합니다. `submissionStatus: SUBMITTED`인 과제도 조회는 가능하지만(제출한 답안을 다시 보고 싶을 때), 이 응답에는 여전히 정답·해설·정오 여부가 포함되지 않습니다 — 채점 결과는 이 엔드포인트가 아니라 [`GET .../result`](#get-apimeassignmentsassignmentidresult--최종-제출-결과-조회)로 확인하며, 제출 후 몇 번이든 재조회할 수 있습니다.
 
-**Error**: `404 Not Found` `{ "code": "ASSIGNMENT_NOT_FOUND", "message": "과제를 찾을 수 없습니다." }`
+**Error**: `404 Not Found` `{ "code": "ASSIGNMENT_NOT_FOUND", "message": "과제를 찾을 수 없습니다." }` — 존재하지 않거나, 본인이 대상이 아니거나, 상태가 `예정`인 과제
 
-#### POST `/api/me/assignments/{assignmentId}/answers` — 답안 제출/임시 저장
+---
+
+#### PUT `/api/me/assignments/{assignmentId}/answers/{questionId}` — 답안 임시 저장
+
+**Path Parameters**: `assignmentId`(long), `questionId`(long, 과제에 포함된 문제 ID)
 
 **Request Body**
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `questionId` | long | ✓ | |
-| `answer` | string | ✓ | 선택한 답 |
-| `final` | boolean | ✓ | `false`: 임시 저장, `true`: 채점 |
+| `answer` | string | ✓ | 임시 저장할 답 |
 
 ```json
-{ "questionId": 1024, "answer": "since", "final": true }
+{ "answer": "since" }
 ```
+
+채점하지 않고 저장만 합니다. 같은 `questionId`로 다시 호출하면 이전 임시 저장 값을 덮어씁니다(upsert) — 자유 학습의 재응시처럼 여러 건이 쌓이지 않습니다. `GET .../questions`를 아직 호출하지 않아 제출 상태가 없는 경우, 이 호출이 먼저 제출 상태를 `IN_PROGRESS`로 생성합니다.
+
+**Response** `200 OK`
+```json
+{ "questionId": 1024, "answer": "since", "savedAt": "2026-08-15T10:00:00" }
+```
+정답 여부·정답·해설은 포함하지 않습니다.
+
+**Error**:
+- `400 Bad Request` `{ "code": "INVALID_REQUEST", "message": "..." }` — `answer` 누락 또는 형식 오류
+- `404 Not Found` `{ "code": "ASSIGNMENT_NOT_FOUND", "message": "과제를 찾을 수 없습니다." }` — 존재하지 않거나, 본인이 대상이 아니거나, 상태가 `예정`인 과제
+- `404 Not Found` `{ "code": "QUESTION_NOT_IN_ASSIGNMENT", "message": "과제에 포함되지 않은 문제입니다." }` — `questionId`가 이 과제의 문제 목록에 없는 경우
+- `409 Conflict` `{ "code": "ASSIGNMENT_CLOSED", "message": "마감된 과제에는 답안을 저장할 수 없습니다." }` — 과제 상태가 `마감`인 경우
+- `409 Conflict` `{ "code": "ASSIGNMENT_ALREADY_SUBMITTED", "message": "이미 제출된 과제는 답안을 수정할 수 없습니다." }` — 제출 상태가 `SUBMITTED`인 경우
+
+---
+
+#### POST `/api/me/assignments/{assignmentId}/submit` — 최종 제출
+
+**Request Body**: 없음
+
+그 시점까지 임시 저장된 모든 답안을 한 번에 채점하고, 문제별 `ASSIGNMENT` StudyRecord를 일괄 생성하며 제출 상태를 `SUBMITTED`로 전이합니다. 전체 처리는 하나의 트랜잭션이며(위 "StudyRecord (과제 제출분) 및 채점 트랜잭션"의 원자성·중복 제출 방지 규칙 참고), 성공 시에만 커밋되고 실패 시 전부 롤백됩니다(부분 채점·부분 StudyRecord 생성 없음).
 
 **Response** `200 OK`
 
-`final: false`
-```json
-{ "saved": true }
-```
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `assignmentId` | long | |
+| `submissionStatus` | string | 항상 `"SUBMITTED"` |
+| `submittedAt` | datetime | |
+| `totalQuestions` | int | 과제의 전체 문제 수 |
+| `answeredQuestions` | int | 최종 제출 시점에 임시 저장되어 있던 문제 수 |
+| `correctCount` | int | 정답 문제 수 |
+| `score` | int | `correctCount ÷ totalQuestions × 100`(반올림) |
+| `results[].questionId` | long | |
+| `results[].submittedAnswer` | string \| null | 임시 저장이 없던 문제는 `null` |
+| `results[].correct` | boolean | 임시 저장이 없던 문제는 `false` |
+| `results[].correctAnswer` | string | 문제의 정답(스냅샷) |
+| `results[].explanation` | string | 문제의 해설(스냅샷) |
 
-`final: true`
 ```json
 {
-  "questionId": 1024,
-  "correct": true,
-  "answer": "since",
-  "explanation": "특정 시작 시점과 현재완료가 함께 쓰일 때 since를 사용합니다."
+  "assignmentId": 1,
+  "submissionStatus": "SUBMITTED",
+  "submittedAt": "2026-08-15T10:00:00",
+  "totalQuestions": 3,
+  "answeredQuestions": 2,
+  "correctCount": 1,
+  "score": 33,
+  "results": [
+    { "questionId": 1024, "submittedAnswer": "since", "correct": true, "correctAnswer": "since", "explanation": "특정 시작 시점과 현재완료가 함께 쓰일 때 since를 사용합니다." },
+    { "questionId": 1023, "submittedAnswer": "for", "correct": false, "correctAnswer": "since", "explanation": "..." },
+    { "questionId": 1021, "submittedAnswer": null, "correct": false, "correctAnswer": "were", "explanation": "..." }
+  ]
 }
 ```
 
-**Error**: `404 Not Found`(`QUESTION_NOT_FOUND`), `409 Conflict` `{ "code": "ASSIGNMENT_CLOSED", "message": "마감된 과제에는 답안을 제출할 수 없습니다." }`
+**Error**:
+- `404 Not Found` `{ "code": "ASSIGNMENT_NOT_FOUND", "message": "과제를 찾을 수 없습니다." }` — 존재하지 않거나, 본인이 대상이 아니거나, 상태가 `예정`인 과제
+- `409 Conflict` `{ "code": "ASSIGNMENT_CLOSED", "message": "마감된 과제는 제출할 수 없습니다." }` — 과제 상태가 `마감`인 경우
+- `409 Conflict` `{ "code": "ASSIGNMENT_ALREADY_SUBMITTED", "message": "이미 제출된 과제입니다." }` — 제출 상태가 이미 `SUBMITTED`인 경우(재채점하지 않고 거부; 기존 결과는 [`GET .../result`](#get-apimeassignmentsassignmentidresult--최종-제출-결과-조회)로 조회)
+
+---
+
+#### GET `/api/me/assignments/{assignmentId}/result` — 최종 제출 결과 조회
+
+제출 상태가 `SUBMITTED`인 과제에 한해, 최종 제출 시 채점되어 저장된 결과를 몇 번이든 다시 조회할 수 있는 엔드포인트입니다. 새로고침이나 이후 재방문에서도 동일한 채점 결과를 안전하게 재구성할 수 있도록 하기 위한 것으로, 재채점하지 않고 제출 시점에 생성된 `ASSIGNMENT` StudyRecord 스냅샷을 그대로 조합해 반환합니다(원본 `Question`이 이후 수정·삭제되어도 영향 없음).
+
+**Response** `200 OK`: [`POST .../submit`](#post-apimeassignmentsassignmentidsubmit--최종-제출)의 성공 응답과 완전히 동일한 필드 구조(`assignmentId`, `submissionStatus`, `submittedAt`, `totalQuestions`, `answeredQuestions`, `correctCount`, `score`, `results[]`)입니다. `results`에는 미응답 문제도 `submittedAnswer: null`, `correct: false`로 포함됩니다.
+
+```json
+{
+  "assignmentId": 1,
+  "submissionStatus": "SUBMITTED",
+  "submittedAt": "2026-08-15T10:00:00",
+  "totalQuestions": 3,
+  "answeredQuestions": 2,
+  "correctCount": 1,
+  "score": 33,
+  "results": [
+    { "questionId": 1024, "submittedAnswer": "since", "correct": true, "correctAnswer": "since", "explanation": "특정 시작 시점과 현재완료가 함께 쓰일 때 since를 사용합니다." },
+    { "questionId": 1023, "submittedAnswer": "for", "correct": false, "correctAnswer": "since", "explanation": "..." },
+    { "questionId": 1021, "submittedAnswer": null, "correct": false, "correctAnswer": "were", "explanation": "..." }
+  ]
+}
+```
+
+**Error**:
+- `404 Not Found` `{ "code": "ASSIGNMENT_NOT_FOUND", "message": "과제를 찾을 수 없습니다." }` — 존재하지 않거나, 본인이 대상이 아니거나, 상태가 `예정`인 과제(대상 판정이 제출 여부보다 먼저 적용됨)
+- `409 Conflict` `{ "code": "ASSIGNMENT_NOT_SUBMITTED", "message": "아직 제출하지 않은 과제입니다." }` — 제출 상태가 `NOT_STARTED` 또는 `IN_PROGRESS`인 경우. 채점 결과·정답·해설·점수 등 어떤 필드도 응답에 포함하지 않습니다(임시 저장 중인 답안을 이 엔드포인트로 들여다볼 수 없도록 함).
+
+---
+
+#### 인수 테스트 시나리오 (Acceptance Examples)
+
+문제 데이터는 위 예시(`id: 1024`, 정답 `since`; `id: 1023`, 정답 `since`; `id: 1021`, 정답 `were`)를 사용하며, `assignmentId: 1`은 `targetType: STUDENT`, `targetStudentId`가 조회하는 학생 본인이고 `status: 진행 중`(시작일이 이미 지난)인 과제입니다.
+
+| # | 시나리오 | 요청 | 기대 결과 |
+| --- | --- | --- | --- |
+| 1 | 내 과제 목록 조회 | `GET /api/me/assignments` | `200`, 본인이 대상이고 상태가 `예정`이 아닌 과제만 포함, 각 항목에 `progress`(임시 저장 기준)와 `submissionStatus` |
+| 2 | 과제 시작(문제 목록 최초 조회) | `GET /api/me/assignments/1/questions` | `200`, `submissionStatus: IN_PROGRESS`로 생성, 전체 문제 `myAnswer: null` |
+| 3 | 제출 전 결과 조회 시도 | 2번 이후 `GET /api/me/assignments/1/result` | `409` `ASSIGNMENT_NOT_SUBMITTED`, 응답에 채점 결과 필드 없음 |
+| 4 | 첫 문제 답안 임시 저장 | `PUT /api/me/assignments/1/answers/1024` `{ "answer": "since" }` | `200`, `{ "questionId": 1024, "answer": "since", ... }`(정답 여부 없음), StudyRecord는 아직 생성되지 않음 |
+| 5 | 저장 후 문제 목록 재조회 | 4번 이후 `GET /api/me/assignments/1/questions` | `200`, `questionId: 1024` 항목만 `myAnswer: "since"`로 변경, 목록의 `progress` 상승(정답 여부는 여전히 노출 안 됨) |
+| 6 | 같은 문제 답안 덮어쓰기 | 4번 이후 다시 `PUT /api/me/assignments/1/answers/1024` `{ "answer": "for" }` | `200`, `myAnswer`가 `"for"`로 교체(새 기록이 쌓이지 않음, 이전 값 `"since"`는 남지 않음) |
+| 7 | 과제에 없는 문제에 저장 시도 | `PUT /api/me/assignments/1/answers/999999` `{ "answer": "x" }` | `404` `QUESTION_NOT_IN_ASSIGNMENT` |
+| 8 | 다른 학생의 과제 접근 | 본인이 대상이 아닌 `assignmentId`로 `GET /api/me/assignments/{id}/questions` | `404` `ASSIGNMENT_NOT_FOUND` |
+| 9 | 예정 과제 접근 | `startDate`가 아직 지나지 않은 `assignmentId`로 `GET /api/me/assignments/{id}/questions` | `404` `ASSIGNMENT_NOT_FOUND`(목록에도 나타나지 않음) |
+| 10 | 마감된 과제에 임시 저장/제출 시도 | `dueDate`가 지난 과제에 `PUT .../answers/{questionId}` 또는 `POST .../submit` | 둘 다 `409` `ASSIGNMENT_CLOSED` |
+| 11 | 나머지 문제까지 저장 후 최종 제출 | 1023에 `"for"` 저장, 1021은 저장하지 않고 `POST /api/me/assignments/1/submit` | `200`, `submissionStatus: SUBMITTED`, `answeredQuestions: 2`, `correctCount: 1`(1023 오답, 1021 미응답), `results`에 1021도 `submittedAnswer: null`/`correct: false`로 포함, StudyRecord 3건 일괄 생성(`type: ASSIGNMENT`, 미응답 1021 포함) |
+| 12 | 제출 후 임시 저장 시도 | 11번 이후 `PUT /api/me/assignments/1/answers/1024` `{ "answer": "for" }` | `409` `ASSIGNMENT_ALREADY_SUBMITTED` |
+| 13 | 중복 최종 제출 | 11번 이후 다시 `POST /api/me/assignments/1/submit` | `409` `ASSIGNMENT_ALREADY_SUBMITTED`(재채점하지 않음, StudyRecord 추가 생성 없음, 기존 결과는 다음 시나리오처럼 `GET .../result`로 조회) |
+| 14 | 제출 결과 조회(재조회) | 11번 이후 `GET /api/me/assignments/1/result` | `200`, 11번 제출 응답과 완전히 동일한 값(재채점 없음), 반복 호출해도 동일 |
+| 15 | 제출 후 문제 목록 재조회 | 11번 이후 `GET /api/me/assignments/1/questions` | `200`, `submissionStatus: SUBMITTED`, 각 `myAnswer`는 제출 당시 값 유지, 정답/해설/정오 여부는 여전히 미포함 |
+| 16 | 관리자 목록의 제출률 | 대상 학생 중 1명만 11번처럼 최종 제출 완료, 대상 학생 총 4명 | `GET /api/assignments`의 해당 항목 `progress: 25`(관리자 관점 — 최종 제출 완료 학생 수 ÷ 전체 대상 학생 수) |
+
+---
 
 ### 자유 학습 (Practice, Phase 2 구현 범위)
 
