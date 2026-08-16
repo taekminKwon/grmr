@@ -1,0 +1,293 @@
+.assignment-create-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 52rem;
+}
+
+.assignment-create-header h1 {
+  margin: 0 0 var(--space-1);
+  color: var(--color-text);
+}
+
+.assignment-create-subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.assignment-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.assignment-create-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.assignment-create-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.assignment-create-field-row .assignment-create-field {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.assignment-create-field label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.assignment-create-field input,
+.assignment-create-field select {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--color-text);
+  background-color: var(--color-white);
+}
+
+.assignment-create-field input:focus-visible,
+.assignment-create-field select:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.assignment-create-field-error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-danger);
+}
+
+.assignment-create-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.assignment-create-section h2 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+.assignment-question-filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background-color: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+}
+
+.assignment-question-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 8rem;
+}
+
+.assignment-question-filter-field-keyword {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.assignment-question-filter-field label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.assignment-question-filter-field input,
+.assignment-question-filter-field select {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  background-color: var(--color-white);
+}
+
+.assignment-question-filter-field input:focus-visible,
+.assignment-question-filter-field select:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.assignment-question-filter-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.assignment-question-search-content {
+  min-height: 4rem;
+}
+
+.assignment-question-search-status {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.assignment-question-search-empty {
+  margin: 0;
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.assignment-question-search-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+}
+
+.assignment-question-search-error p {
+  margin: 0;
+}
+
+.assignment-question-search-table,
+.assignment-selected-questions-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.assignment-question-search-table th,
+.assignment-question-search-table td,
+.assignment-selected-questions-table th,
+.assignment-selected-questions-table td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.875rem;
+}
+
+.assignment-question-search-table th,
+.assignment-selected-questions-table th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  background-color: var(--color-primary-soft);
+}
+
+.assignment-question-search-table tbody tr:last-child td,
+.assignment-selected-questions-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.assignment-question-search-text,
+.assignment-selected-questions-text {
+  max-width: 24rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assignment-question-search-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.assignment-question-search-pagination-status {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.assignment-selected-questions-empty {
+  margin: 0;
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.assignment-selected-questions-move {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.assignment-create-submit-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+}
+
+.assignment-create-submit-error p {
+  margin: 0;
+}
+
+.assignment-create-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 720px) {
+  .assignment-create-page {
+    max-width: none;
+  }
+
+  .assignment-create-field-row {
+    flex-direction: column;
+  }
+
+  .assignment-question-filter-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .assignment-question-filter-field {
+    min-width: 0;
+  }
+
+  .assignment-question-search-table,
+  .assignment-selected-questions-table {
+    display: block;
+    overflow-x: auto;
+  }
+}

@@ -30,6 +30,7 @@ function renderAssignmentListPage() {
       <MemoryRouter initialEntries={['/admin/assignments']}>
         <Routes>
           <Route path="/admin/assignments" element={<AssignmentListPage />} />
+          <Route path="/admin/assignments/new" element={<div>Assignment create landing</div>} />
           <Route path="/admin/assignments/:id" element={<div>Assignment detail landing</div>} />
           <Route path="/login" element={<div>Login landing</div>} />
         </Routes>
@@ -258,5 +259,19 @@ describe('AssignmentListPage', () => {
     fireEvent.click(titleLink)
 
     expect(screen.getByText('Assignment detail landing')).toBeDefined()
+  })
+
+  it('shows a 과제 추가 button for an admin that navigates to the create route', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(jsonResponse(200, pageResponse([])))
+    vi.stubGlobal('fetch', fetchSpy)
+    seedAdminSession()
+
+    renderAssignmentListPage()
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1))
+
+    const createButton = screen.getByRole('button', { name: '과제 추가' })
+    fireEvent.click(createButton)
+
+    expect(screen.getByText('Assignment create landing')).toBeDefined()
   })
 })

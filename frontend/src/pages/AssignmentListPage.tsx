@@ -38,6 +38,7 @@ function AssignmentListPage() {
   const [result, setResult] = useState<FetchResult | null>(null)
 
   const accessToken = session?.accessToken
+  const isAdmin = session?.user.role === 'ADMIN'
 
   useEffect(() => {
     if (!accessToken) {
@@ -130,6 +131,11 @@ function AssignmentListPage() {
             <h1>과제 관리</h1>
             <p className="assignment-list-subtitle">등록된 과제를 조건별로 조회합니다.</p>
           </div>
+          {isAdmin && (
+            <Button type="button" onClick={() => navigate('/admin/assignments/new')}>
+              과제 추가
+            </Button>
+          )}
         </header>
 
         <form className="assignment-filter-form" onSubmit={handleFilterSubmit} aria-label="과제 검색 필터">
