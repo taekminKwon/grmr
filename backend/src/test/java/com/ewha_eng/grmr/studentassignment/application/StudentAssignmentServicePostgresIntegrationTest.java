@@ -17,6 +17,7 @@ import com.ewha_eng.grmr.question.domain.QuestionRepository;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentAlreadySubmittedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentClosedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentNotSubmittedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmission;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmissionRepository;
 import com.ewha_eng.grmr.studentassignment.domain.SubmissionStatus;
@@ -581,6 +582,119 @@ class StudentAssignmentServicePostgresIntegrationTest {
             .orElseThrow();
         assertThat(reloaded.answerFor(firstQuestion.getId())).contains("since");
         assertThat(reloaded.answerFor(secondQuestion.getId())).contains("for");
+    }
+
+    @Test
+    void getResult_returnsSameGradingAsSubmit_inAssignmentOrder() {
+        Member student = saveStudent();
+        Question first = saveQuestion();
+        Question second = saveQuestion();
+        Assignment assignment = saveAssignment(List.of(first.getId(), second.getId()));
+        studentAssignmentService.saveAnswerDraft(assignment.getId(), first.getId(), "since", student.getId());
+        AssignmentSubmissionResult submitResult = studentAssignmentService.submit(assignment.getId(),
+            student.getId());
+        entityManager.clear();
+
+        AssignmentSubmissionResult result = studentAssignmentService.getResult(assignment.getId(), student.getId());
+
+        assertThat(result.assignmentId()).isEqualTo(assignment.getId());
+        assertThat(result.submittedAt()).isEqualTo(submitResult.submittedAt());
+        assertThat(result.totalQuestions()).isEqualTo(2);
+        assertThat(result.answeredQuestions()).isEqualTo(1);
+        assertThat(result.correctCount()).isEqualTo(1);
+        assertThat(result.score()).isEqualTo(50);
+        assertThat(result.results()).hasSize(2);
+        assertThat(result.results().get(0).questionId()).isEqualTo(first.getId());
+        assertThat(result.results().get(0).submittedAnswer()).isEqualTo("since");
+        assertThat(result.results().get(0).correct()).isTrue();
+        assertThat(result.results().get(1).questionId()).isEqualTo(second.getId());
+        assertThat(result.results().get(1).submittedAnswer()).isNull();
+        assertThat(result.results().get(1).correct()).isFalse();
+    }
+
+    @Test
+    void getResult_staysImmutable_afterOriginalQuestionIsLaterUpdated() {
+        Member student = saveStudent();
+        Question question = saveQuestion();
+        Assignment assignment = saveAssignment(List.of(question.getId()));
+        studentAssignmentService.saveAnswerDraft(assignment.getId(), question.getId(), "since", student.getId());
+        studentAssignmentService.submit(assignment.getId(), student.getId());
+        entityManager.clear();
+
+        questionService.update(question.getId(), null, null, null, "changed text", null, "for",
+            "changed explanation");
+        entityManager.clear();
+
+        AssignmentSubmissionResult result = studentAssignmentService.getResult(assignment.getId(), student.getId());
+
+        assertThat(result.results()).hasSize(1);
+        assertThat(result.results().get(0).submittedAnswer()).isEqualTo("since");
+        assertThat(result.results().get(0).correct()).isTrue();
+        assertThat(result.results().get(0).correctAnswer()).isEqualTo("since");
+        assertThat(result.results().get(0).explanation()).isEqualTo("해설");
+    }
+
+    @Test
+    void getResult_throws_whenNotYetSubmitted() {
+        Member student = saveStudent();
+        Question question = saveQuestion();
+        Assignment assignment = saveAssignment(List.of(question.getId()));
+        studentAssignmentService.saveAnswerDraft(assignment.getId(), question.getId(), "since", student.getId());
+
+        assertThatThrownBy(() -> studentAssignmentService.getResult(assignment.getId(), student.getId()))
+            .isInstanceOf(AssignmentNotSubmittedException.class);
+    }
+
+    @Test
+    void getResult_throws_whenStudentIsNotTargeted() {
+        Member student = saveStudent();
+        Question question = saveQuestion();
+        Assignment assignment = assignmentRepository.saveAndFlush(Assignment.builder()
+            .title("다른 반 과제")
+            .targetType(AssignmentTargetType.CLASS)
+            .targetGroup("중2 B반")
+            .startDate(LocalDate.now().minusDays(1))
+            .dueDate(LocalDate.now().plusDays(10))
+            .questionIds(List.of(question.getId()))
+            .build());
+
+        assertThatThrownBy(() -> studentAssignmentService.getResult(assignment.getId(), student.getId()))
+            .isInstanceOf(AssignmentNotFoundException.class);
+    }
+
+    @Test
+    void getResult_throws_whenAssignmentIsScheduled() {
+        Member student = saveStudent();
+        Question question = saveQuestion();
+        Assignment assignment = assignmentRepository.saveAndFlush(Assignment.builder()
+            .title("예정된 과제")
+            .targetType(AssignmentTargetType.CLASS)
+            .targetGroup("중1 A반")
+            .startDate(LocalDate.now().plusDays(1))
+            .dueDate(LocalDate.now().plusDays(10))
+            .questionIds(List.of(question.getId()))
+            .build());
+
+        assertThatThrownBy(() -> studentAssignmentService.getResult(assignment.getId(), student.getId()))
+            .isInstanceOf(AssignmentNotFoundException.class);
+    }
+
+    @Test
+    void getResult_doesNotLeakAnotherStudentsSubmission_toAStudentWhoHasNotSubmitted() {
+        Member submittedStudent = saveStudent();
+        Member otherStudent = saveStudent();
+        Question question = saveQuestion();
+        Assignment assignment = saveAssignment(List.of(question.getId()));
+        studentAssignmentService.saveAnswerDraft(assignment.getId(), question.getId(), "since",
+            submittedStudent.getId());
+        studentAssignmentService.submit(assignment.getId(), submittedStudent.getId());
+
+        assertThatThrownBy(() -> studentAssignmentService.getResult(assignment.getId(), otherStudent.getId()))
+            .isInstanceOf(AssignmentNotSubmittedException.class);
+
+        AssignmentSubmissionResult ownerResult = studentAssignmentService.getResult(assignment.getId(),
+            submittedStudent.getId());
+        assertThat(ownerResult.results().get(0).submittedAnswer()).isEqualTo("since");
     }
 
     private void await(CountDownLatch ready, CountDownLatch start) {

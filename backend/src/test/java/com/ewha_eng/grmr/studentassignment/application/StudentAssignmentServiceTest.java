@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -25,6 +26,8 @@ import com.ewha_eng.grmr.question.domain.QuestionRepository;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentAlreadySubmittedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentClosedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentNotSubmittedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentResultInconsistentException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmission;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmissionRepository;
 import com.ewha_eng.grmr.studentassignment.domain.InvalidAssignmentSubmissionException;
@@ -32,6 +35,7 @@ import com.ewha_eng.grmr.studentassignment.domain.QuestionNotInAssignmentExcepti
 import com.ewha_eng.grmr.studentassignment.domain.StudentAssignmentProgressStatus;
 import com.ewha_eng.grmr.studentassignment.domain.SubmissionStatus;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecord;
+import com.ewha_eng.grmr.studyrecord.domain.StudyRecordReader;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordStore;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -74,13 +78,16 @@ class StudentAssignmentServiceTest {
     @Mock
     private StudyRecordStore studyRecordStore;
 
+    @Mock
+    private StudyRecordReader studyRecordReader;
+
     private StudentAssignmentService service;
 
     @BeforeEach
     void setUp() {
         Clock fixedClock = Clock.fixed(FIXED_TODAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
         service = new StudentAssignmentService(assignmentRepository, submissionRepository, submissionStarter,
-            questionRepository, memberReader, studyRecordStore, fixedClock);
+            questionRepository, memberReader, studyRecordStore, studyRecordReader, fixedClock);
     }
 
     @Test
@@ -612,6 +619,216 @@ class StudentAssignmentServiceTest {
             .isInstanceOf(AssignmentAlreadySubmittedException.class);
         verify(studyRecordStore, never()).save(any());
         verify(submissionRepository, never()).save(any());
+    }
+
+    @Test
+    void getResult_returnsExactShape_inAssignmentOrder_withMixedAnsweredAndCorrectness() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Question first = question(1024L, "현재완료", QuestionLevel.INTERMEDIATE, "He has lived here _____ 2010.");
+        Question second = question(1023L, "현재완료", QuestionLevel.INTERMEDIATE, "She has worked here _____ 3 years.");
+        Assignment assignment = assignmentWithQuestions(List.of(1024L, 1023L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 8, 15, 10, 0);
+        when(submissionRepository.findByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.of(submittedSubmission(submittedAt)));
+        Member member = student("중1 A반");
+        StudyRecord correctRecord = StudyRecord.createAssignmentAttempt(member, first, "since", 10L, submittedAt);
+        StudyRecord unansweredRecord = StudyRecord.createAssignmentAttempt(member, second, null, 10L, submittedAt);
+        when(studyRecordReader.findAssignmentAttempts(STUDENT_ID, 10L))
+            .thenReturn(List.of(unansweredRecord, correctRecord));
+
+        AssignmentSubmissionResult result = service.getResult(10L, STUDENT_ID);
+
+        assertThat(result.assignmentId()).isEqualTo(10L);
+        assertThat(result.submittedAt()).isEqualTo(submittedAt);
+        assertThat(result.totalQuestions()).isEqualTo(2);
+        assertThat(result.answeredQuestions()).isEqualTo(1);
+        assertThat(result.correctCount()).isEqualTo(1);
+        assertThat(result.score()).isEqualTo(50);
+        assertThat(result.results()).hasSize(2);
+        assertThat(result.results().get(0).questionId()).isEqualTo(1024L);
+        assertThat(result.results().get(0).submittedAnswer()).isEqualTo("since");
+        assertThat(result.results().get(0).correct()).isTrue();
+        assertThat(result.results().get(0).correctAnswer()).isEqualTo("since");
+        assertThat(result.results().get(1).questionId()).isEqualTo(1023L);
+        assertThat(result.results().get(1).submittedAnswer()).isNull();
+        assertThat(result.results().get(1).correct()).isFalse();
+    }
+
+    @Test
+    void getResult_sourcesSubmittedAt_fromPersistedSubmission_notFromStudyRecords() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Question question = question(1024L, "현재완료", QuestionLevel.INTERMEDIATE, "He has lived here _____ 2010.");
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        LocalDateTime submissionSubmittedAt = LocalDateTime.of(2026, 8, 15, 10, 0);
+        LocalDateTime recordSubmittedAt = LocalDateTime.of(2026, 8, 14, 9, 30);
+        when(submissionRepository.findByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.of(submittedSubmission(submissionSubmittedAt)));
+        Member member = student("중1 A반");
+        StudyRecord record = StudyRecord.createAssignmentAttempt(member, question, "since", 10L, recordSubmittedAt);
+        when(studyRecordReader.findAssignmentAttempts(STUDENT_ID, 10L)).thenReturn(List.of(record));
+
+        AssignmentSubmissionResult result = service.getResult(10L, STUDENT_ID);
+
+        assertThat(result.submittedAt()).isEqualTo(submissionSubmittedAt);
+        assertThat(result.submittedAt()).isNotEqualTo(recordSubmittedAt);
+    }
+
+    @Test
+    void getResult_allowsClosedAssignment_toBeViewed() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Question question = question(1024L, "현재완료", QuestionLevel.INTERMEDIATE, "He has lived here _____ 2010.");
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY.minusDays(10),
+            FIXED_TODAY.minusDays(1));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        when(submissionRepository.findByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.of(submittedSubmission(LocalDateTime.now())));
+        Member member = student("중1 A반");
+        StudyRecord record = StudyRecord.createAssignmentAttempt(member, question, "since", 10L, LocalDateTime.now());
+        when(studyRecordReader.findAssignmentAttempts(STUDENT_ID, 10L)).thenReturn(List.of(record));
+
+        AssignmentSubmissionResult result = service.getResult(10L, STUDENT_ID);
+
+        assertThat(result.assignmentId()).isEqualTo(10L);
+        assertThat(result.results()).hasSize(1);
+    }
+
+    @Test
+    void getResult_throws_whenAssignmentDoesNotExist() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        when(assignmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getResult(999L, STUDENT_ID))
+            .isInstanceOf(AssignmentNotFoundException.class);
+        verify(studyRecordReader, never()).findAssignmentAttempts(anyLong(), anyLong());
+    }
+
+    @Test
+    void getResult_throws_whenClassAssignmentDoesNotMatchStudentGroup() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중2 B반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+
+        assertThatThrownBy(() -> service.getResult(10L, STUDENT_ID))
+            .isInstanceOf(AssignmentNotFoundException.class);
+        verify(studyRecordReader, never()).findAssignmentAttempts(anyLong(), anyLong());
+    }
+
+    @Test
+    void getResult_throws_whenIndividualAssignmentTargetsAnotherStudent() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = individualAssignment(999L, FIXED_TODAY, FIXED_TODAY.plusDays(1));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+
+        assertThatThrownBy(() -> service.getResult(10L, STUDENT_ID))
+            .isInstanceOf(AssignmentNotFoundException.class);
+    }
+
+    @Test
+    void getResult_throws_whenAssignmentIsScheduled() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY.plusDays(1),
+            FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+
+        assertThatThrownBy(() -> service.getResult(10L, STUDENT_ID))
+            .isInstanceOf(AssignmentNotFoundException.class);
+        verify(studyRecordReader, never()).findAssignmentAttempts(anyLong(), anyLong());
+    }
+
+    @Test
+    void getResult_throws_whenNoSubmissionRowExists() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        when(submissionRepository.findByAssignmentIdAndStudentId(10L, STUDENT_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getResult(10L, STUDENT_ID))
+            .isInstanceOf(AssignmentNotSubmittedException.class);
+        verify(studyRecordReader, never()).findAssignmentAttempts(anyLong(), anyLong());
+    }
+
+    @Test
+    void getResult_throws_whenSubmissionIsInProgress_withNoRecords() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        AssignmentSubmission inProgress = AssignmentSubmission.start(10L, STUDENT_ID, LocalDateTime.now());
+        when(submissionRepository.findByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.of(inProgress));
+
+        assertThatThrownBy(() -> service.getResult(10L, STUDENT_ID))
+            .isInstanceOf(AssignmentNotSubmittedException.class);
+        verify(studyRecordReader, never()).findAssignmentAttempts(anyLong(), anyLong());
+    }
+
+    @Test
+    void getResult_throws_whenSubmissionIsInProgress_evenWithStrayAssignmentRecords() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Question question = question(1024L, "현재완료", QuestionLevel.INTERMEDIATE, "He has lived here _____ 2010.");
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        AssignmentSubmission inProgress = AssignmentSubmission.start(10L, STUDENT_ID, LocalDateTime.now());
+        when(submissionRepository.findByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.of(inProgress));
+        Member member = student("중1 A반");
+        StudyRecord strayRecord = StudyRecord.createAssignmentAttempt(
+            member, question, "since", 10L, LocalDateTime.now());
+        lenient().when(studyRecordReader.findAssignmentAttempts(STUDENT_ID, 10L)).thenReturn(List.of(strayRecord));
+
+        assertThatThrownBy(() -> service.getResult(10L, STUDENT_ID))
+            .isInstanceOf(AssignmentNotSubmittedException.class);
+        verify(studyRecordReader, never()).findAssignmentAttempts(anyLong(), anyLong());
+    }
+
+    @Test
+    void getResult_throws_inconsistent_whenSubmittedButSubmittedAtIsMissing() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        AssignmentSubmission inconsistent = AssignmentSubmission.start(10L, STUDENT_ID, LocalDateTime.now());
+        ReflectionTestUtils.setField(inconsistent, "status", SubmissionStatus.SUBMITTED);
+        when(submissionRepository.findByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.of(inconsistent));
+
+        assertThatThrownBy(() -> service.getResult(10L, STUDENT_ID))
+            .isInstanceOf(AssignmentResultInconsistentException.class);
+        verify(studyRecordReader, never()).findAssignmentAttempts(anyLong(), anyLong());
+    }
+
+    @Test
+    void getResult_throws_whenSnapshotIsMissingForACurrentAssignmentQuestion() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Question first = question(1024L, "현재완료", QuestionLevel.INTERMEDIATE, "He has lived here _____ 2010.");
+        Assignment assignment = assignmentWithQuestions(List.of(1024L, 1023L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        when(submissionRepository.findByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.of(submittedSubmission(LocalDateTime.now())));
+        Member member = student("중1 A반");
+        StudyRecord onlyRecord = StudyRecord.createAssignmentAttempt(
+            member, first, "since", 10L, LocalDateTime.now());
+        when(studyRecordReader.findAssignmentAttempts(STUDENT_ID, 10L)).thenReturn(List.of(onlyRecord));
+
+        assertThatThrownBy(() -> service.getResult(10L, STUDENT_ID))
+            .isInstanceOf(AssignmentResultInconsistentException.class);
+    }
+
+    private AssignmentSubmission submittedSubmission(LocalDateTime submittedAt) {
+        AssignmentSubmission submission = AssignmentSubmission.start(10L, STUDENT_ID, submittedAt.minusMinutes(30));
+        submission.submit(submittedAt);
+        return submission;
     }
 
     private Member student(String studentGroup) {

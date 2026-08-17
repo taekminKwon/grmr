@@ -12,16 +12,20 @@ import com.ewha_eng.grmr.member.domain.MemberReader;
 import com.ewha_eng.grmr.question.domain.Question;
 import com.ewha_eng.grmr.question.domain.QuestionRepository;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentClosedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentNotSubmittedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentResultInconsistentException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmission;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmissionRepository;
 import com.ewha_eng.grmr.studentassignment.domain.QuestionNotInAssignmentException;
 import com.ewha_eng.grmr.studentassignment.domain.StudentAssignmentProgressStatus;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecord;
+import com.ewha_eng.grmr.studyrecord.domain.StudyRecordReader;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordStore;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -48,6 +52,7 @@ public class StudentAssignmentService {
     private final QuestionRepository questionRepository;
     private final MemberReader memberReader;
     private final StudyRecordStore studyRecordStore;
+    private final StudyRecordReader studyRecordReader;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -123,6 +128,65 @@ public class StudentAssignmentService {
 
         return new AssignmentSubmissionResult(assignmentId, now, totalQuestions, answeredQuestions, correctCount,
             score, results);
+    }
+
+    /**
+     * Reconstructs the final result purely from the immutable ASSIGNMENT {@link StudyRecord}
+     * snapshots written by {@link #submit}; never regrades against the assignment's current
+     * (possibly since-edited) question data. Submission status, not record presence, is the sole
+     * source of truth for whether the assignment has been submitted.
+     */
+    @Transactional(readOnly = true)
+    public AssignmentSubmissionResult getResult(Long assignmentId, Long studentId) {
+        Member student = requireMember(studentId);
+        Assignment assignment = requireAccessibleAssignment(assignmentId, studentId, student.getStudentGroup());
+
+        AssignmentSubmission submission = submissionRepository
+            .findByAssignmentIdAndStudentId(assignmentId, studentId)
+            .filter(AssignmentSubmission::isSubmitted)
+            .orElseThrow(() -> new AssignmentNotSubmittedException("아직 제출되지 않은 과제입니다."));
+        LocalDateTime submittedAt = submission.getSubmittedAt();
+        if (submittedAt == null) {
+            throw new AssignmentResultInconsistentException(
+                "제출된 과제의 제출 시각이 누락되었습니다: assignmentId=" + assignmentId + ", studentId=" + studentId);
+        }
+
+        List<StudyRecord> records = studyRecordReader.findAssignmentAttempts(studentId, assignmentId);
+        return buildResultFromSnapshots(assignment, records, submittedAt);
+    }
+
+    private AssignmentSubmissionResult buildResultFromSnapshots(Assignment assignment, List<StudyRecord> records,
+        LocalDateTime submittedAt) {
+        Map<Long, StudyRecord> recordsByQuestionId = new HashMap<>();
+        for (StudyRecord record : records) {
+            Long questionId = record.getQuestion().getId();
+            if (recordsByQuestionId.put(questionId, record) != null) {
+                throw new AssignmentResultInconsistentException(
+                    "과제 채점 스냅샷이 중복되었습니다: assignmentId=" + assignment.getId());
+            }
+        }
+
+        List<AssignmentSubmissionResultItem> results = new ArrayList<>();
+        for (Long questionId : assignment.getQuestionIds()) {
+            StudyRecord record = recordsByQuestionId.get(questionId);
+            if (record == null) {
+                throw new AssignmentResultInconsistentException(
+                    "과제 채점 스냅샷이 누락되었습니다: assignmentId=" + assignment.getId());
+            }
+            results.add(new AssignmentSubmissionResultItem(
+                questionId, record.getSubmittedAnswer(), record.isCorrect(), record.getCorrectAnswer(),
+                record.getExplanation()));
+        }
+
+        int totalQuestions = assignment.getQuestionIds().size();
+        int answeredQuestions = (int) results.stream()
+            .filter(item -> item.submittedAnswer() != null)
+            .count();
+        int correctCount = (int) results.stream().filter(AssignmentSubmissionResultItem::correct).count();
+        int score = totalQuestions == 0 ? 0 : Math.round(correctCount * 100f / totalQuestions);
+
+        return new AssignmentSubmissionResult(assignment.getId(), submittedAt, totalQuestions, answeredQuestions,
+            correctCount, score, results);
     }
 
     private List<AssignmentSubmissionResultItem> gradeAndRecord(Assignment assignment, AssignmentSubmission submission,

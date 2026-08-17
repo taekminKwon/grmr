@@ -69,4 +69,14 @@ public class StudentAssignmentController {
 
         return ResponseEntity.ok(AssignmentSubmitResponse.from(result));
     }
+
+    @GetMapping("/{assignmentId}/result")
+    public ResponseEntity<AssignmentResultResponse> result(
+        @AuthenticationPrincipal Long memberId,
+        @PathVariable Long assignmentId
+    ) {
+        AssignmentSubmissionResult result = studentAssignmentService.getResult(assignmentId, memberId);
+
+        return ResponseEntity.ok(AssignmentResultResponse.from(result));
+    }
 }

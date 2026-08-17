@@ -4,6 +4,7 @@ import static com.ewha_eng.grmr.studyrecord.domain.QStudyRecord.studyRecord;
 
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecord;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordReader;
+import com.ewha_eng.grmr.studyrecord.domain.StudyRecordType;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.util.List;
@@ -51,6 +52,15 @@ public class StudyRecordJpaRepositoryImpl implements StudyRecordReader {
             .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    @Override
+    public List<StudyRecord> findAssignmentAttempts(Long memberId, Long assignmentId) {
+        return queryFactory
+            .selectFrom(studyRecord)
+            .where(studyRecord.member.id.eq(memberId), studyRecord.assignmentId.eq(assignmentId),
+                studyRecord.type.eq(StudyRecordType.ASSIGNMENT))
+            .fetch();
     }
 
     private BooleanExpression categoryEq(String category) {

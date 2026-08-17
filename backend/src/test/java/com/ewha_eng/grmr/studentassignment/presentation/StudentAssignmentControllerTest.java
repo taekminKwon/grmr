@@ -30,6 +30,7 @@ import com.ewha_eng.grmr.studentassignment.application.StudentAssignmentQuestion
 import com.ewha_eng.grmr.studentassignment.application.StudentAssignmentService;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentAlreadySubmittedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentClosedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentNotSubmittedException;
 import com.ewha_eng.grmr.studentassignment.domain.QuestionNotInAssignmentException;
 import com.ewha_eng.grmr.studentassignment.domain.StudentAssignmentProgressStatus;
 import com.ewha_eng.grmr.studentassignment.domain.SubmissionStatus;
@@ -466,6 +467,97 @@ class StudentAssignmentControllerTest {
             .andExpect(jsonPath("$.code").value("FORBIDDEN"));
 
         verify(studentAssignmentService, never()).submit(any(), any());
+    }
+
+    @Test
+    void result_returns200_withExactResponseShape_inAssignmentOrder() throws Exception {
+        authenticateAsStudent();
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 8, 15, 10, 0);
+        AssignmentSubmissionResult result = new AssignmentSubmissionResult(
+            10L, submittedAt, 2, 2, 1, 50,
+            List.of(
+                new AssignmentSubmissionResultItem(1024L, "since", true, "since", "해설1"),
+                new AssignmentSubmissionResultItem(1023L, "for", false, "since", "해설2")
+            ));
+        when(studentAssignmentService.getResult(10L, 2L)).thenReturn(result);
+
+        mockMvc.perform(get("/api/me/assignments/10/result")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.assignmentId").value(10))
+            .andExpect(jsonPath("$.submissionStatus").value("SUBMITTED"))
+            .andExpect(jsonPath("$.submittedAt").value("2026-08-15T10:00:00"))
+            .andExpect(jsonPath("$.totalQuestions").value(2))
+            .andExpect(jsonPath("$.answeredQuestions").value(2))
+            .andExpect(jsonPath("$.correctCount").value(1))
+            .andExpect(jsonPath("$.score").value(50))
+            .andExpect(jsonPath("$.results[0].questionId").value(1024))
+            .andExpect(jsonPath("$.results[0].submittedAnswer").value("since"))
+            .andExpect(jsonPath("$.results[0].correct").value(true))
+            .andExpect(jsonPath("$.results[0].correctAnswer").value("since"))
+            .andExpect(jsonPath("$.results[0].explanation").value("해설1"))
+            .andExpect(jsonPath("$.results[1].questionId").value(1023))
+            .andExpect(jsonPath("$.results[1].submittedAnswer").value("for"))
+            .andExpect(jsonPath("$.results[1].correct").value(false));
+    }
+
+    @Test
+    void result_returns200_withNullSubmittedAnswer_forUnansweredQuestions() throws Exception {
+        authenticateAsStudent();
+        AssignmentSubmissionResult result = new AssignmentSubmissionResult(
+            10L, LocalDateTime.of(2026, 8, 15, 10, 0), 1, 0, 0, 0,
+            List.of(new AssignmentSubmissionResultItem(1024L, null, false, "since", "해설")));
+        when(studentAssignmentService.getResult(10L, 2L)).thenReturn(result);
+
+        mockMvc.perform(get("/api/me/assignments/10/result")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.results[0].submittedAnswer").isEmpty())
+            .andExpect(jsonPath("$.results[0].correct").value(false));
+    }
+
+    @Test
+    void result_returns404_withAssignmentNotFoundCode_whenNotTargeted() throws Exception {
+        authenticateAsStudent();
+        when(studentAssignmentService.getResult(999L, 2L))
+            .thenThrow(new AssignmentNotFoundException("과제를 찾을 수 없습니다."));
+
+        mockMvc.perform(get("/api/me/assignments/999/result")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("ASSIGNMENT_NOT_FOUND"));
+    }
+
+    @Test
+    void result_returns409_withAssignmentNotSubmittedCode() throws Exception {
+        authenticateAsStudent();
+        when(studentAssignmentService.getResult(10L, 2L))
+            .thenThrow(new AssignmentNotSubmittedException("아직 제출되지 않은 과제입니다."));
+
+        mockMvc.perform(get("/api/me/assignments/10/result")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ASSIGNMENT_NOT_SUBMITTED"));
+    }
+
+    @Test
+    void result_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
+        mockMvc.perform(get("/api/me/assignments/10/result"))
+            .andExpect(status().isUnauthorized());
+
+        verify(studentAssignmentService, never()).getResult(any(), any());
+    }
+
+    @Test
+    void result_returns403_whenAccessTokenIsAdminRole() throws Exception {
+        authenticateAsAdmin();
+
+        mockMvc.perform(get("/api/me/assignments/10/result")
+                .header("Authorization", "Bearer access-token"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        verify(studentAssignmentService, never()).getResult(any(), any());
     }
 
     private void authenticateAsStudent() {

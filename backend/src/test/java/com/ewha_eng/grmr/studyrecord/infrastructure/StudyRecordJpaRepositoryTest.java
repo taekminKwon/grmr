@@ -166,6 +166,34 @@ class StudyRecordJpaRepositoryTest {
     }
 
     @Test
+    void findAssignmentAttempts_returnsOnlyAssignmentSnapshots_forGivenMemberAndAssignment() {
+        Member owner = saveStudent("owner09");
+        Member other = saveStudent("other09");
+        Question question = saveQuestion();
+        studyRecordRepository.saveAndFlush(
+            StudyRecord.createPracticeAttempt(owner, question, "since"));
+        StudyRecord ownAttempt = studyRecordRepository.saveAndFlush(
+            StudyRecord.createAssignmentAttempt(owner, question, "since", 1L, LocalDateTime.now()));
+        studyRecordRepository.saveAndFlush(
+            StudyRecord.createAssignmentAttempt(owner, question, "since", 2L, LocalDateTime.now()));
+        studyRecordRepository.saveAndFlush(
+            StudyRecord.createAssignmentAttempt(other, question, "since", 1L, LocalDateTime.now()));
+
+        List<StudyRecord> found = studyRecordReader.findAssignmentAttempts(owner.getId(), 1L);
+
+        assertThat(found).extracting(StudyRecord::getId).containsExactly(ownAttempt.getId());
+    }
+
+    @Test
+    void findAssignmentAttempts_returnsEmpty_whenStudentHasNotSubmitted() {
+        Member owner = saveStudent("owner10");
+
+        List<StudyRecord> found = studyRecordReader.findAssignmentAttempts(owner.getId(), 1L);
+
+        assertThat(found).isEmpty();
+    }
+
+    @Test
     void snapshot_remainsUnchanged_afterOriginalQuestionIsLaterUpdated() {
         Member owner = saveStudent("owner05");
         Question question = saveQuestion();

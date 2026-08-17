@@ -17,6 +17,7 @@ import com.ewha_eng.grmr.question.domain.QuestionNotInUseException;
 import com.ewha_eng.grmr.question.domain.QuestionTypeNotSupportedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentAlreadySubmittedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentClosedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentNotSubmittedException;
 import com.ewha_eng.grmr.studentassignment.domain.InvalidAssignmentSubmissionException;
 import com.ewha_eng.grmr.studentassignment.domain.QuestionNotInAssignmentException;
 import com.ewha_eng.grmr.studyrecord.domain.InvalidStudyRecordException;
@@ -173,5 +174,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInvalidAssignmentSubmission(InvalidAssignmentSubmissionException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
+    }
+
+    @ExceptionHandler(AssignmentNotSubmittedException.class)
+    public ResponseEntity<ErrorResponse> handleAssignmentNotSubmitted(AssignmentNotSubmittedException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ErrorResponse("ASSIGNMENT_NOT_SUBMITTED", e.getMessage()));
     }
 }
