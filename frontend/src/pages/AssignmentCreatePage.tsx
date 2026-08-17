@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AssignmentApiError, assignmentApi } from '../api/assignmentApi'
 import { ASSIGNMENT_TARGET_TYPES } from '../api/assignmentTypes'
@@ -175,10 +175,21 @@ function AssignmentCreatePage() {
     }
   }, [accessToken, appliedQuestionFilters, questionPage, questionRetryToken])
 
-  function handleQuestionFilterSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  function handleQuestionFilterSubmit() {
     setAppliedQuestionFilters(questionFormState)
     setQuestionPage(0)
+  }
+
+  // The question filter fields live inside the outer <form> (a page can't
+  // nest <form> elements — a nested <form>'s submit event still bubbles to
+  // the outer form's onSubmit, which would fire the create-assignment
+  // submission), so Enter must be handled manually here instead of relying
+  // on native submit-on-Enter.
+  function handleQuestionFilterKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      handleQuestionFilterSubmit()
+    }
   }
 
   function handleQuestionFilterReset() {
@@ -401,11 +412,7 @@ function AssignmentCreatePage() {
           <section className="assignment-create-section">
             <h2>문제 검색</h2>
 
-            <form
-              className="assignment-question-filter-form"
-              onSubmit={handleQuestionFilterSubmit}
-              aria-label="문제 검색 필터"
-            >
+            <div className="assignment-question-filter-form" role="search" aria-label="문제 검색 필터">
               <div className="assignment-question-filter-field">
                 <label htmlFor="question-search-category">카테고리</label>
                 <input
@@ -415,6 +422,7 @@ function AssignmentCreatePage() {
                   onChange={(event) =>
                     setQuestionFormState((prev) => ({ ...prev, category: event.target.value }))
                   }
+                  onKeyDown={handleQuestionFilterKeyDown}
                   placeholder="예: 현재완료"
                 />
               </div>
@@ -464,17 +472,20 @@ function AssignmentCreatePage() {
                   onChange={(event) =>
                     setQuestionFormState((prev) => ({ ...prev, keyword: event.target.value }))
                   }
+                  onKeyDown={handleQuestionFilterKeyDown}
                   placeholder="문제 본문 검색"
                 />
               </div>
 
               <div className="assignment-question-filter-actions">
-                <Button type="submit">검색</Button>
+                <Button type="button" onClick={handleQuestionFilterSubmit}>
+                  검색
+                </Button>
                 <Button type="button" variant="secondary" onClick={handleQuestionFilterReset}>
                   초기화
                 </Button>
               </div>
-            </form>
+            </div>
 
             <div className="assignment-question-search-content" aria-live="polite">
               {isQuestionSearchLoading && (
