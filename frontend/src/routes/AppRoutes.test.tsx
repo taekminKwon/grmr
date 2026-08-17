@@ -460,6 +460,61 @@ describe('AppRoutes', () => {
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
   })
 
+  it('redirects unauthenticated access to /student/assignments/:id back to /login', () => {
+    renderAt('/student/assignments/1')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the assignment solve page for an authenticated STUDENT at /student/assignments/:id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, {
+          assignmentId: 1,
+          submissionStatus: 'IN_PROGRESS',
+          questions: [
+            {
+              id: 1024,
+              order: 1,
+              category: '현재완료',
+              level: '보통',
+              text: 'He has lived here _____ 2010.',
+              choices: ['for', 'since', 'during', 'from'],
+              myAnswer: null,
+            },
+          ],
+        }),
+      ),
+    )
+    seedStudentSession()
+
+    renderAt('/student/assignments/1')
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '과제 풀이' })).toBeDefined())
+    expect(screen.getByText('He has lived here _____ 2010.')).toBeDefined()
+  })
+
+  it('renders a forbidden state for an authenticated ADMIN at /student/assignments/:id', () => {
+    seedAdminSession()
+
+    renderAt('/student/assignments/1')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '과제 풀이' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /student/assignments/:id when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/student/assignments/1')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
+
   it('redirects unauthenticated access to /student/practice back to /login', () => {
     renderAt('/student/practice')
 
