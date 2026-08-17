@@ -28,4 +28,18 @@ public class AssignmentSubmissionRepositoryImpl implements AssignmentSubmissionR
 
         return results.stream().findFirst();
     }
+
+    @Override
+    public List<AssignmentSubmission> findAllWithDraftsByStudentIdAndAssignmentIdIn(Long studentId,
+        List<Long> assignmentIds) {
+        if (assignmentIds == null || assignmentIds.isEmpty()) {
+            return List.of();
+        }
+
+        return queryFactory
+            .selectFrom(assignmentSubmission).distinct()
+            .leftJoin(assignmentSubmission.drafts, assignmentAnswerDraft).fetchJoin()
+            .where(assignmentSubmission.studentId.eq(studentId), assignmentSubmission.assignmentId.in(assignmentIds))
+            .fetch();
+    }
 }

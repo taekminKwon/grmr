@@ -114,6 +114,89 @@ class AssignmentRepositoryImplTest {
     }
 
     @Test
+    void findForStudent_returnsIndividuallyTargetedAssignment() {
+        Assignment targeted = saveIndividual(501L, TODAY, TODAY.plusDays(1));
+        saveIndividual(999L, TODAY, TODAY.plusDays(1));
+
+        Page<Assignment> result = assignmentRepository.findForStudent(501L, "중1 A반", TODAY, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).extracting(Assignment::getId).containsExactly(targeted.getId());
+    }
+
+    @Test
+    void findForStudent_returnsClassTargetedAssignment_whenStudentGroupMatches() {
+        Assignment targeted = save("현재완료 시제 연습", TODAY, TODAY.plusDays(1));
+        saveWithGroup("다른 반 과제", "중2 B반", TODAY, TODAY.plusDays(1));
+
+        Page<Assignment> result = assignmentRepository.findForStudent(501L, "중1 A반", TODAY, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).extracting(Assignment::getId).containsExactly(targeted.getId());
+    }
+
+    @Test
+    void findForStudent_excludesScheduledAssignments() {
+        save("아직 시작 안함", TODAY.plusDays(1), TODAY.plusDays(3));
+        Assignment inProgress = save("진행 중", TODAY, TODAY.plusDays(1));
+
+        Page<Assignment> result = assignmentRepository.findForStudent(501L, "중1 A반", TODAY, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).extracting(Assignment::getId).containsExactly(inProgress.getId());
+    }
+
+    @Test
+    void findForStudent_includesClosedAssignments() {
+        Assignment closed = save("마감된 과제", TODAY.minusDays(5), TODAY.minusDays(1));
+
+        Page<Assignment> result = assignmentRepository.findForStudent(501L, "중1 A반", TODAY, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).extracting(Assignment::getId).containsExactly(closed.getId());
+    }
+
+    @Test
+    void findForStudent_ignoresClassAssignments_whenStudentHasNoGroup() {
+        save("반 과제", TODAY, TODAY.plusDays(1));
+
+        Page<Assignment> result = assignmentRepository.findForStudent(501L, null, TODAY, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    void findForStudent_ordersByDueDateAscending() {
+        Assignment later = save("나중 마감", TODAY, TODAY.plusDays(5));
+        Assignment sooner = save("빠른 마감", TODAY, TODAY.plusDays(1));
+
+        Page<Assignment> result = assignmentRepository.findForStudent(501L, "중1 A반", TODAY, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).extracting(Assignment::getId)
+            .containsExactly(sooner.getId(), later.getId());
+    }
+
+    private Assignment saveIndividual(Long targetStudentId, LocalDate startDate, LocalDate dueDate) {
+        Assignment assignment = Assignment.builder()
+            .title("개별 과제")
+            .targetType(AssignmentTargetType.STUDENT)
+            .targetStudentId(targetStudentId)
+            .startDate(startDate)
+            .dueDate(dueDate)
+            .questionIds(List.of(1L))
+            .build();
+        return assignmentRepository.saveAndFlush(assignment);
+    }
+
+    private Assignment saveWithGroup(String title, String targetGroup, LocalDate startDate, LocalDate dueDate) {
+        Assignment assignment = Assignment.builder()
+            .title(title)
+            .targetType(AssignmentTargetType.CLASS)
+            .targetGroup(targetGroup)
+            .startDate(startDate)
+            .dueDate(dueDate)
+            .questionIds(List.of(1L))
+            .build();
+        return assignmentRepository.saveAndFlush(assignment);
+    }
+
+    @Test
     void search_returnsExactPageSizeAndTotals_atBoundary() {
         for (int i = 0; i < 5; i++) {
             save("과제 " + i, TODAY, TODAY.plusDays(1), LocalDateTime.now().plusSeconds(i));

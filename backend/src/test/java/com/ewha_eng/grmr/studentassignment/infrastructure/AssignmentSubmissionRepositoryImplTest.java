@@ -155,6 +155,52 @@ class AssignmentSubmissionRepositoryImplTest {
     }
 
     @Test
+    void findAllWithDraftsByStudentIdAndAssignmentIdIn_returnsOnlyMatchingStudentSubmissions() {
+        Member student = saveStudent("student09");
+        Member otherStudent = saveStudent("student10");
+        Assignment first = saveAssignment();
+        Assignment second = saveAssignment();
+        AssignmentSubmission submission = submissionRepository.saveAndFlush(
+            AssignmentSubmission.start(first.getId(), student.getId(), LocalDateTime.now()));
+        submissionRepository.saveAndFlush(
+            AssignmentSubmission.start(second.getId(), otherStudent.getId(), LocalDateTime.now()));
+        entityManager.clear();
+
+        List<AssignmentSubmission> results = submissionRepository.findAllWithDraftsByStudentIdAndAssignmentIdIn(
+            student.getId(), List.of(first.getId(), second.getId()));
+
+        assertThat(results).extracting(AssignmentSubmission::getId).containsExactly(submission.getId());
+    }
+
+    @Test
+    void findAllWithDraftsByStudentIdAndAssignmentIdIn_loadsDraftsForEachSubmission() {
+        Member student = saveStudent("student11");
+        Assignment assignment = saveAssignment();
+        Question question = saveQuestion();
+        AssignmentSubmission submission = submissionRepository.saveAndFlush(
+            AssignmentSubmission.start(assignment.getId(), student.getId(), LocalDateTime.now()));
+        submission.upsertDraft(question.getId(), "since", LocalDateTime.now());
+        submissionRepository.saveAndFlush(submission);
+        entityManager.clear();
+
+        List<AssignmentSubmission> results = submissionRepository.findAllWithDraftsByStudentIdAndAssignmentIdIn(
+            student.getId(), List.of(assignment.getId()));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).answerFor(question.getId())).contains("since");
+    }
+
+    @Test
+    void findAllWithDraftsByStudentIdAndAssignmentIdIn_returnsEmpty_whenAssignmentIdsIsEmpty() {
+        Member student = saveStudent("student12");
+
+        List<AssignmentSubmission> results = submissionRepository.findAllWithDraftsByStudentIdAndAssignmentIdIn(
+            student.getId(), List.of());
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
     void findByIdForSubmission_locksAndReturnsSubmission_readyForAtomicTransition() {
         Member student = saveStudent("student08");
         Assignment assignment = saveAssignment();

@@ -5,6 +5,7 @@ import static com.ewha_eng.grmr.assignment.domain.QAssignment.assignment;
 import com.ewha_eng.grmr.assignment.domain.Assignment;
 import com.ewha_eng.grmr.assignment.domain.AssignmentRepositoryCustom;
 import com.ewha_eng.grmr.assignment.domain.AssignmentStatus;
+import com.ewha_eng.grmr.assignment.domain.AssignmentTargetType;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -46,6 +47,41 @@ public class AssignmentRepositoryImpl implements AssignmentRepositoryCustom {
             .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    @Override
+    public Page<Assignment> findForStudent(Long studentId, String studentGroup, LocalDate today,
+        Pageable pageable) {
+        BooleanBuilder predicate = new BooleanBuilder()
+            .and(targetsStudent(studentId, studentGroup))
+            .and(assignment.startDate.loe(today));
+
+        List<Assignment> content = queryFactory
+            .selectFrom(assignment)
+            .where(predicate)
+            .orderBy(assignment.dueDate.asc(), assignment.id.asc())
+            .offset(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .fetch();
+
+        Long total = queryFactory
+            .select(assignment.count())
+            .from(assignment)
+            .where(predicate)
+            .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    private BooleanExpression targetsStudent(Long studentId, String studentGroup) {
+        BooleanExpression individual = assignment.targetType.eq(AssignmentTargetType.STUDENT)
+            .and(assignment.targetStudentId.eq(studentId));
+        if (!StringUtils.hasText(studentGroup)) {
+            return individual;
+        }
+        BooleanExpression classTargeted = assignment.targetType.eq(AssignmentTargetType.CLASS)
+            .and(assignment.targetGroup.eq(studentGroup));
+        return individual.or(classTargeted);
     }
 
     private BooleanExpression statusEq(AssignmentStatus status, LocalDate today) {
