@@ -5,6 +5,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,13 +20,18 @@ import com.ewha_eng.grmr.global.security.JsonAuthenticationEntryPoint;
 import com.ewha_eng.grmr.global.security.SecurityConfig;
 import com.ewha_eng.grmr.member.domain.MemberType;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
+import com.ewha_eng.grmr.studentassignment.application.AssignmentAnswerDraftResult;
 import com.ewha_eng.grmr.studentassignment.application.StudentAssignmentListItem;
 import com.ewha_eng.grmr.studentassignment.application.StudentAssignmentQuestion;
 import com.ewha_eng.grmr.studentassignment.application.StudentAssignmentQuestions;
 import com.ewha_eng.grmr.studentassignment.application.StudentAssignmentService;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentAlreadySubmittedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentClosedException;
+import com.ewha_eng.grmr.studentassignment.domain.QuestionNotInAssignmentException;
 import com.ewha_eng.grmr.studentassignment.domain.StudentAssignmentProgressStatus;
 import com.ewha_eng.grmr.studentassignment.domain.SubmissionStatus;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +40,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -226,6 +233,133 @@ class StudentAssignmentControllerTest {
             .andExpect(jsonPath("$.code").value("FORBIDDEN"));
 
         verify(studentAssignmentService, never()).getQuestions(any(), any());
+    }
+
+    @Test
+    void saveAnswer_returns200_withSavedDraft_andWithoutGradingFields() throws Exception {
+        authenticateAsStudent();
+        LocalDateTime savedAt = LocalDateTime.of(2026, 8, 15, 10, 0);
+        when(studentAssignmentService.saveAnswerDraft(10L, 1024L, "since", 2L))
+            .thenReturn(new AssignmentAnswerDraftResult(1024L, "since", savedAt));
+
+        mockMvc.perform(put("/api/me/assignments/10/answers/1024")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"since\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.questionId").value(1024))
+            .andExpect(jsonPath("$.answer").value("since"))
+            .andExpect(jsonPath("$.savedAt").value("2026-08-15T10:00:00"))
+            .andExpect(jsonPath("$.correct").doesNotExist())
+            .andExpect(jsonPath("$.answerKey").doesNotExist())
+            .andExpect(jsonPath("$.explanation").doesNotExist())
+            .andExpect(jsonPath("$.score").doesNotExist());
+    }
+
+    @Test
+    void saveAnswer_returns400_withInvalidRequestCode_whenAnswerIsBlank() throws Exception {
+        authenticateAsStudent();
+
+        mockMvc.perform(put("/api/me/assignments/10/answers/1024")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"   \"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+        verify(studentAssignmentService, never()).saveAnswerDraft(any(), any(), any(), any());
+    }
+
+    @Test
+    void saveAnswer_returns400_withInvalidRequestCode_whenAnswerIsMissing() throws Exception {
+        authenticateAsStudent();
+
+        mockMvc.perform(put("/api/me/assignments/10/answers/1024")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void saveAnswer_returns404_withAssignmentNotFoundCode_whenNotTargeted() throws Exception {
+        authenticateAsStudent();
+        when(studentAssignmentService.saveAnswerDraft(999L, 1024L, "since", 2L))
+            .thenThrow(new AssignmentNotFoundException("과제를 찾을 수 없습니다."));
+
+        mockMvc.perform(put("/api/me/assignments/999/answers/1024")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"since\"}"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("ASSIGNMENT_NOT_FOUND"));
+    }
+
+    @Test
+    void saveAnswer_returns404_withQuestionNotInAssignmentCode() throws Exception {
+        authenticateAsStudent();
+        when(studentAssignmentService.saveAnswerDraft(10L, 999999L, "since", 2L))
+            .thenThrow(new QuestionNotInAssignmentException("과제에 포함되지 않은 문제입니다."));
+
+        mockMvc.perform(put("/api/me/assignments/10/answers/999999")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"since\"}"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("QUESTION_NOT_IN_ASSIGNMENT"));
+    }
+
+    @Test
+    void saveAnswer_returns409_withAssignmentClosedCode() throws Exception {
+        authenticateAsStudent();
+        when(studentAssignmentService.saveAnswerDraft(10L, 1024L, "since", 2L))
+            .thenThrow(new AssignmentClosedException("마감된 과제에는 답안을 저장할 수 없습니다."));
+
+        mockMvc.perform(put("/api/me/assignments/10/answers/1024")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"since\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ASSIGNMENT_CLOSED"));
+    }
+
+    @Test
+    void saveAnswer_returns409_withAssignmentAlreadySubmittedCode() throws Exception {
+        authenticateAsStudent();
+        when(studentAssignmentService.saveAnswerDraft(10L, 1024L, "since", 2L))
+            .thenThrow(new AssignmentAlreadySubmittedException("이미 제출된 과제는 답안을 수정할 수 없습니다."));
+
+        mockMvc.perform(put("/api/me/assignments/10/answers/1024")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"since\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ASSIGNMENT_ALREADY_SUBMITTED"));
+    }
+
+    @Test
+    void saveAnswer_returns401_whenNoAuthorizationHeaderIsPresent() throws Exception {
+        mockMvc.perform(put("/api/me/assignments/10/answers/1024")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"since\"}"))
+            .andExpect(status().isUnauthorized());
+
+        verify(studentAssignmentService, never()).saveAnswerDraft(any(), any(), any(), any());
+    }
+
+    @Test
+    void saveAnswer_returns403_whenAccessTokenIsAdminRole() throws Exception {
+        authenticateAsAdmin();
+
+        mockMvc.perform(put("/api/me/assignments/10/answers/1024")
+                .header("Authorization", "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"answer\":\"since\"}"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+        verify(studentAssignmentService, never()).saveAnswerDraft(any(), any(), any(), any());
     }
 
     private void authenticateAsStudent() {

@@ -2,6 +2,7 @@ package com.ewha_eng.grmr.studentassignment.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -22,8 +23,12 @@ import com.ewha_eng.grmr.question.domain.Question;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionRepository;
 import com.ewha_eng.grmr.question.domain.QuestionType;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentAlreadySubmittedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentClosedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmission;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmissionRepository;
+import com.ewha_eng.grmr.studentassignment.domain.InvalidAssignmentSubmissionException;
+import com.ewha_eng.grmr.studentassignment.domain.QuestionNotInAssignmentException;
 import com.ewha_eng.grmr.studentassignment.domain.StudentAssignmentProgressStatus;
 import com.ewha_eng.grmr.studentassignment.domain.SubmissionStatus;
 import java.time.Clock;
@@ -323,6 +328,155 @@ class StudentAssignmentServiceTest {
         assertThat(result.get(1).id()).isEqualTo(1023L);
         assertThat(result.get(1).order()).isEqualTo(2);
         assertThat(result.get(1).myAnswer()).isEqualTo("were");
+    }
+
+    @Test
+    void saveAnswerDraft_createsSubmission_andSavesDraft_onFirstSave() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        when(submissionRepository.findWithDraftsByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.empty());
+        AssignmentSubmission created = AssignmentSubmission.start(10L, STUDENT_ID, LocalDateTime.now());
+        when(submissionStarter.startNew(10L, STUDENT_ID)).thenReturn(created);
+
+        AssignmentAnswerDraftResult result = service.saveAnswerDraft(10L, 1024L, "since", STUDENT_ID);
+
+        assertThat(result.questionId()).isEqualTo(1024L);
+        assertThat(result.answer()).isEqualTo("since");
+        assertThat(result.savedAt()).isNotNull();
+        verify(submissionRepository).save(created);
+        assertThat(created.answerFor(1024L)).contains("since");
+    }
+
+    @Test
+    void saveAnswerDraft_overwritesExistingDraft_updatingSavedAt() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        AssignmentSubmission submission = AssignmentSubmission.start(10L, STUDENT_ID, LocalDateTime.now());
+        submission.upsertDraft(1024L, "since", LocalDateTime.now().minusMinutes(5));
+        when(submissionRepository.findWithDraftsByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.of(submission));
+
+        AssignmentAnswerDraftResult result = service.saveAnswerDraft(10L, 1024L, "for", STUDENT_ID);
+
+        assertThat(result.answer()).isEqualTo("for");
+        assertThat(submission.answeredQuestionCount()).isEqualTo(1);
+        assertThat(submission.answerFor(1024L)).contains("for");
+        verify(submissionRepository).save(submission);
+        verify(submissionStarter, never()).startNew(anyLong(), anyLong());
+    }
+
+    @Test
+    void saveAnswerDraft_reFetchesSubmission_whenConcurrentRequestWonTheRace() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        AssignmentSubmission winnerSubmission = AssignmentSubmission.start(10L, STUDENT_ID, LocalDateTime.now());
+        when(submissionRepository.findWithDraftsByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.empty())
+            .thenReturn(Optional.of(winnerSubmission));
+        when(submissionStarter.startNew(10L, STUDENT_ID))
+            .thenThrow(new DataIntegrityViolationException("unique constraint violation"));
+
+        AssignmentAnswerDraftResult result = service.saveAnswerDraft(10L, 1024L, "since", STUDENT_ID);
+
+        assertThat(result.answer()).isEqualTo("since");
+        assertThat(winnerSubmission.answerFor(1024L)).contains("since");
+        verify(submissionRepository).save(winnerSubmission);
+    }
+
+    @Test
+    void saveAnswerDraft_throws_whenClassAssignmentDoesNotMatchStudentGroup() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중2 B반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+
+        assertThatThrownBy(() -> service.saveAnswerDraft(10L, 1024L, "since", STUDENT_ID))
+            .isInstanceOf(AssignmentNotFoundException.class);
+        verify(submissionRepository, never()).findWithDraftsByAssignmentIdAndStudentId(anyLong(), anyLong());
+    }
+
+    @Test
+    void saveAnswerDraft_throws_whenAssignmentIsScheduled() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY.plusDays(1),
+            FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+
+        assertThatThrownBy(() -> service.saveAnswerDraft(10L, 1024L, "since", STUDENT_ID))
+            .isInstanceOf(AssignmentNotFoundException.class);
+    }
+
+    @Test
+    void saveAnswerDraft_throws_whenAssignmentDoesNotExist() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        when(assignmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.saveAnswerDraft(999L, 1024L, "since", STUDENT_ID))
+            .isInstanceOf(AssignmentNotFoundException.class);
+    }
+
+    @Test
+    void saveAnswerDraft_throws_whenQuestionNotInAssignment() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+
+        assertThatThrownBy(() -> service.saveAnswerDraft(10L, 999999L, "since", STUDENT_ID))
+            .isInstanceOf(QuestionNotInAssignmentException.class);
+        verify(submissionRepository, never()).findWithDraftsByAssignmentIdAndStudentId(anyLong(), anyLong());
+    }
+
+    @Test
+    void saveAnswerDraft_throws_whenAssignmentIsClosed() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY.minusDays(10),
+            FIXED_TODAY.minusDays(1));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+
+        assertThatThrownBy(() -> service.saveAnswerDraft(10L, 1024L, "since", STUDENT_ID))
+            .isInstanceOf(AssignmentClosedException.class);
+        verify(submissionRepository, never()).findWithDraftsByAssignmentIdAndStudentId(anyLong(), anyLong());
+    }
+
+    @Test
+    void saveAnswerDraft_throws_whenAlreadySubmitted() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        AssignmentSubmission submission = AssignmentSubmission.start(10L, STUDENT_ID, LocalDateTime.now());
+        submission.submit(LocalDateTime.now());
+        when(submissionRepository.findWithDraftsByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.of(submission));
+
+        assertThatThrownBy(() -> service.saveAnswerDraft(10L, 1024L, "since", STUDENT_ID))
+            .isInstanceOf(AssignmentAlreadySubmittedException.class);
+        verify(submissionRepository, never()).save(any());
+    }
+
+    @Test
+    void saveAnswerDraft_throws_whenAnswerIsBlank() {
+        when(memberReader.findById(STUDENT_ID)).thenReturn(Optional.of(student("중1 A반")));
+        Assignment assignment = assignmentWithQuestions(List.of(1024L), FIXED_TODAY, FIXED_TODAY.plusDays(3));
+        ReflectionTestUtils.setField(assignment, "id", 10L);
+        when(assignmentRepository.findById(10L)).thenReturn(Optional.of(assignment));
+        AssignmentSubmission submission = AssignmentSubmission.start(10L, STUDENT_ID, LocalDateTime.now());
+        when(submissionRepository.findWithDraftsByAssignmentIdAndStudentId(10L, STUDENT_ID))
+            .thenReturn(Optional.of(submission));
+
+        assertThatThrownBy(() -> service.saveAnswerDraft(10L, 1024L, "   ", STUDENT_ID))
+            .isInstanceOf(InvalidAssignmentSubmissionException.class);
+        verify(submissionRepository, never()).save(any());
     }
 
     private Member student(String studentGroup) {

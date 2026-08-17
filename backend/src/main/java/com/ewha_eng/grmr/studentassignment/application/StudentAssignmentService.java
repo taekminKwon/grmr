@@ -11,11 +11,14 @@ import com.ewha_eng.grmr.member.domain.MemberNotFoundException;
 import com.ewha_eng.grmr.member.domain.MemberReader;
 import com.ewha_eng.grmr.question.domain.Question;
 import com.ewha_eng.grmr.question.domain.QuestionRepository;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentClosedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmission;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmissionRepository;
+import com.ewha_eng.grmr.studentassignment.domain.QuestionNotInAssignmentException;
 import com.ewha_eng.grmr.studentassignment.domain.StudentAssignmentProgressStatus;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -65,15 +68,39 @@ public class StudentAssignmentService {
     @Transactional
     public StudentAssignmentQuestions getQuestions(Long assignmentId, Long studentId) {
         Member student = requireMember(studentId);
-        Assignment assignment = assignmentRepository.findById(assignmentId)
-            .filter(candidate -> isTargeted(candidate, studentId, student.getStudentGroup()))
-            .filter(candidate -> candidate.status(LocalDate.now(clock)) != AssignmentStatus.SCHEDULED)
-            .orElseThrow(() -> new AssignmentNotFoundException("과제를 찾을 수 없습니다."));
+        Assignment assignment = requireAccessibleAssignment(assignmentId, studentId, student.getStudentGroup());
 
         AssignmentSubmission submission = openSubmission(assignmentId, studentId);
 
         return new StudentAssignmentQuestions(assignmentId, submission.getStatus(),
             orderedQuestions(assignment, submission));
+    }
+
+    @Transactional
+    public AssignmentAnswerDraftResult saveAnswerDraft(Long assignmentId, Long questionId, String answer,
+        Long studentId) {
+        Member student = requireMember(studentId);
+        Assignment assignment = requireAccessibleAssignment(assignmentId, studentId, student.getStudentGroup());
+        if (!assignment.getQuestionIds().contains(questionId)) {
+            throw new QuestionNotInAssignmentException("과제에 포함되지 않은 문제입니다.");
+        }
+        if (assignment.status(LocalDate.now(clock)) == AssignmentStatus.CLOSED) {
+            throw new AssignmentClosedException("마감된 과제에는 답안을 저장할 수 없습니다.");
+        }
+
+        AssignmentSubmission submission = openSubmission(assignmentId, studentId);
+        LocalDateTime now = LocalDateTime.now(clock);
+        submission.upsertDraft(questionId, answer, now);
+        submissionRepository.save(submission);
+
+        return new AssignmentAnswerDraftResult(questionId, submission.answerFor(questionId).orElseThrow(), now);
+    }
+
+    private Assignment requireAccessibleAssignment(Long assignmentId, Long studentId, String studentGroup) {
+        return assignmentRepository.findById(assignmentId)
+            .filter(candidate -> isTargeted(candidate, studentId, studentGroup))
+            .filter(candidate -> candidate.status(LocalDate.now(clock)) != AssignmentStatus.SCHEDULED)
+            .orElseThrow(() -> new AssignmentNotFoundException("과제를 찾을 수 없습니다."));
     }
 
     private AssignmentSubmission openSubmission(Long assignmentId, Long studentId) {

@@ -1,5 +1,6 @@
 package com.ewha_eng.grmr.studentassignment.presentation;
 
+import com.ewha_eng.grmr.studentassignment.application.AssignmentAnswerDraftResult;
 import com.ewha_eng.grmr.studentassignment.application.StudentAssignmentListItem;
 import com.ewha_eng.grmr.studentassignment.application.StudentAssignmentQuestions;
 import com.ewha_eng.grmr.studentassignment.application.StudentAssignmentService;
@@ -9,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,5 +43,18 @@ public class StudentAssignmentController {
         StudentAssignmentQuestions questions = studentAssignmentService.getQuestions(assignmentId, memberId);
 
         return ResponseEntity.ok(StudentAssignmentQuestionsResponse.from(questions));
+    }
+
+    @PutMapping("/{assignmentId}/answers/{questionId}")
+    public ResponseEntity<AssignmentAnswerResponse> saveAnswer(
+        @AuthenticationPrincipal Long memberId,
+        @PathVariable Long assignmentId,
+        @PathVariable Long questionId,
+        @RequestBody AssignmentAnswerRequest request
+    ) {
+        AssignmentAnswerDraftResult result = studentAssignmentService.saveAnswerDraft(
+            assignmentId, questionId, request.toAnswer(), memberId);
+
+        return ResponseEntity.ok(AssignmentAnswerResponse.from(result));
     }
 }
