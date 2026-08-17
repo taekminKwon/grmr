@@ -8,6 +8,9 @@ import LoginPage from '../pages/LoginPage'
 import QuestionCreatePage from '../pages/QuestionCreatePage'
 import QuestionDetailPage from '../pages/QuestionDetailPage'
 import QuestionListPage from '../pages/QuestionListPage'
+import StudentAssignmentListPage from '../pages/StudentAssignmentListPage'
+import StudentAssignmentResultPage from '../pages/StudentAssignmentResultPage'
+import StudentAssignmentSolvePage from '../pages/StudentAssignmentSolvePage'
 import StudentHistoryDetailPage from '../pages/StudentHistoryDetailPage'
 import StudentHistoryListPage from '../pages/StudentHistoryListPage'
 import StudentPage from '../pages/StudentPage'
@@ -87,6 +90,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="STUDENT">
             <StudentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/assignments"
+        element={
+          <ProtectedRoute requiredRole="STUDENT">
+            <StudentAssignmentListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/assignments/:id"
+        element={
+          <ProtectedRoute requiredRole="STUDENT">
+            <StudentAssignmentSolvePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/student/assignments/:id/result"
+        element={
+          <ProtectedRoute requiredRole="STUDENT">
+            <StudentAssignmentResultPage />
           </ProtectedRoute>
         }
       />

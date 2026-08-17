@@ -66,7 +66,6 @@ public class StudyRecord {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String explanation;
 
-    @Column(nullable = false)
     private String submittedAnswer;
 
     @Column(nullable = false)
@@ -75,10 +74,18 @@ public class StudyRecord {
     @Column(nullable = false)
     private LocalDateTime submittedAt;
 
-    private StudyRecord(Member member, Question question, String submittedAnswer) {
+    /**
+     * Set only for {@link StudyRecordType#ASSIGNMENT} records: the assignment this snapshot was
+     * graded as part of, used for progress/history aggregation. Not exposed as a response field.
+     */
+    @Column(name = "assignment_id")
+    private Long assignmentId;
+
+    private StudyRecord(Member member, Question question, StudyRecordType type, String submittedAnswer,
+        Long assignmentId, LocalDateTime submittedAt) {
         this.member = member;
         this.question = question;
-        this.type = StudyRecordType.PRACTICE;
+        this.type = type;
         this.category = question.getCategory();
         this.level = question.getLevel();
         this.text = question.getText();
@@ -87,23 +94,44 @@ public class StudyRecord {
         this.explanation = question.getExplanation();
         this.submittedAnswer = submittedAnswer;
         this.correct = question.isCorrectAnswer(submittedAnswer);
-        this.submittedAt = LocalDateTime.now();
+        this.assignmentId = assignmentId;
+        this.submittedAt = submittedAt;
     }
 
     public static StudyRecord createPracticeAttempt(Member member, Question question, String submittedAnswer) {
-        validate(member, question, submittedAnswer);
-        return new StudyRecord(member, question, submittedAnswer);
+        validate(member, question, StudyRecordType.PRACTICE, submittedAnswer, null);
+        return new StudyRecord(member, question, StudyRecordType.PRACTICE, submittedAnswer, null,
+            LocalDateTime.now());
     }
 
-    private static void validate(Member member, Question question, String submittedAnswer) {
+    /**
+     * Grades one question of an assignment final-submit snapshot. {@code submittedAnswer} may be
+     * {@code null} when the student never saved a draft for this question — unlike practice
+     * attempts, a null/blank answer is still a valid (incorrect) assignment result.
+     */
+    public static StudyRecord createAssignmentAttempt(Member member, Question question, String submittedAnswer,
+        Long assignmentId, LocalDateTime submittedAt) {
+        validate(member, question, StudyRecordType.ASSIGNMENT, submittedAnswer, assignmentId);
+        if (submittedAt == null) {
+            throw new InvalidStudyRecordException("제출 시각은 필수입니다.");
+        }
+        return new StudyRecord(member, question, StudyRecordType.ASSIGNMENT, submittedAnswer, assignmentId,
+            submittedAt);
+    }
+
+    private static void validate(Member member, Question question, StudyRecordType type, String submittedAnswer,
+        Long assignmentId) {
         if (member == null) {
             throw new InvalidStudyRecordException("학습자는 필수입니다.");
         }
         if (question == null) {
             throw new InvalidStudyRecordException("문제는 필수입니다.");
         }
-        if (submittedAnswer == null || submittedAnswer.isBlank()) {
+        if (type == StudyRecordType.PRACTICE && (submittedAnswer == null || submittedAnswer.isBlank())) {
             throw new InvalidStudyRecordException("제출한 답안은 필수입니다.");
+        }
+        if (type == StudyRecordType.ASSIGNMENT && assignmentId == null) {
+            throw new InvalidStudyRecordException("과제 ID는 필수입니다.");
         }
     }
 }

@@ -129,11 +129,12 @@ describe('AppRoutes', () => {
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
   })
 
-  it('shows Practice and My Study links for a STUDENT, with no admin navigation', () => {
+  it('shows 내 과제, Practice, and My Study links for a STUDENT, with no admin navigation', () => {
     seedStudentSession()
 
     renderAt('/student')
 
+    expect(screen.getByRole('link', { name: '내 과제' }).getAttribute('href')).toBe('/student/assignments')
     expect(screen.getByRole('link', { name: 'Practice' }).getAttribute('href')).toBe('/student/practice')
     expect(screen.getByRole('link', { name: 'My Study' }).getAttribute('href')).toBe('/student/history')
     expect(screen.queryByRole('link', { name: 'Questions' })).toBeNull()
@@ -416,6 +417,154 @@ describe('AppRoutes', () => {
     renderAt('/admin')
 
     expect(screen.getByRole('link', { name: 'Assignments' }).getAttribute('href')).toBe('/admin/assignments')
+  })
+
+  it('redirects unauthenticated access to /student/assignments back to /login', () => {
+    renderAt('/student/assignments')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the assignment list for an authenticated STUDENT at /student/assignments', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 }),
+      ),
+    )
+    seedStudentSession()
+
+    renderAt('/student/assignments')
+
+    expect(screen.getByRole('heading', { name: '내 과제' })).toBeDefined()
+    await waitFor(() => expect(screen.getByText('받은 과제가 없습니다.')).toBeDefined())
+  })
+
+  it('renders a forbidden state for an authenticated ADMIN at /student/assignments', () => {
+    seedAdminSession()
+
+    renderAt('/student/assignments')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '내 과제' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /student/assignments when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/student/assignments')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
+
+  it('redirects unauthenticated access to /student/assignments/:id back to /login', () => {
+    renderAt('/student/assignments/1')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the assignment solve page for an authenticated STUDENT at /student/assignments/:id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, {
+          assignmentId: 1,
+          submissionStatus: 'IN_PROGRESS',
+          questions: [
+            {
+              id: 1024,
+              order: 1,
+              category: '현재완료',
+              level: '보통',
+              text: 'He has lived here _____ 2010.',
+              choices: ['for', 'since', 'during', 'from'],
+              myAnswer: null,
+            },
+          ],
+        }),
+      ),
+    )
+    seedStudentSession()
+
+    renderAt('/student/assignments/1')
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: '과제 풀이' })).toBeDefined())
+    expect(screen.getByText('He has lived here _____ 2010.')).toBeDefined()
+  })
+
+  it('renders a forbidden state for an authenticated ADMIN at /student/assignments/:id', () => {
+    seedAdminSession()
+
+    renderAt('/student/assignments/1')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '과제 풀이' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /student/assignments/:id when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/student/assignments/1')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
+
+  it('redirects unauthenticated access to /student/assignments/:id/result back to /login', () => {
+    renderAt('/student/assignments/1/result')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the assignment result page for an authenticated STUDENT at /student/assignments/:id/result', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, {
+          assignmentId: 1,
+          submissionStatus: 'SUBMITTED',
+          submittedAt: '2026-08-15T10:00:00',
+          totalQuestions: 1,
+          answeredQuestions: 1,
+          correctCount: 1,
+          score: 100,
+          results: [
+            { questionId: 1024, submittedAnswer: 'since', correct: true, correctAnswer: 'since', explanation: '설명' },
+          ],
+        }),
+      ),
+    )
+    seedStudentSession()
+
+    renderAt('/student/assignments/1/result')
+
+    expect(screen.getByRole('heading', { name: '과제 결과' })).toBeDefined()
+    await waitFor(() => expect(screen.getByText('100점')).toBeDefined())
+  })
+
+  it('renders a forbidden state for an authenticated ADMIN at /student/assignments/:id/result', () => {
+    seedAdminSession()
+
+    renderAt('/student/assignments/1/result')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '과제 결과' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /student/assignments/:id/result when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/student/assignments/1/result')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
   })
 
   it('redirects unauthenticated access to /student/practice back to /login', () => {

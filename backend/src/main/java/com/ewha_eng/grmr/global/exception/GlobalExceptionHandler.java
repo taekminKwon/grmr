@@ -15,6 +15,11 @@ import com.ewha_eng.grmr.question.domain.NoQuestionAvailableException;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import com.ewha_eng.grmr.question.domain.QuestionNotInUseException;
 import com.ewha_eng.grmr.question.domain.QuestionTypeNotSupportedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentAlreadySubmittedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentClosedException;
+import com.ewha_eng.grmr.studentassignment.domain.AssignmentNotSubmittedException;
+import com.ewha_eng.grmr.studentassignment.domain.InvalidAssignmentSubmissionException;
+import com.ewha_eng.grmr.studentassignment.domain.QuestionNotInAssignmentException;
 import com.ewha_eng.grmr.studyrecord.domain.InvalidStudyRecordException;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -145,5 +150,35 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleStudentNotFound(StudentNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
             .body(new ErrorResponse("STUDENT_NOT_FOUND", e.getMessage()));
+    }
+
+    @ExceptionHandler(QuestionNotInAssignmentException.class)
+    public ResponseEntity<ErrorResponse> handleQuestionNotInAssignment(QuestionNotInAssignmentException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ErrorResponse("QUESTION_NOT_IN_ASSIGNMENT", e.getMessage()));
+    }
+
+    @ExceptionHandler(AssignmentClosedException.class)
+    public ResponseEntity<ErrorResponse> handleAssignmentClosed(AssignmentClosedException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ErrorResponse("ASSIGNMENT_CLOSED", e.getMessage()));
+    }
+
+    @ExceptionHandler(AssignmentAlreadySubmittedException.class)
+    public ResponseEntity<ErrorResponse> handleAssignmentAlreadySubmitted(AssignmentAlreadySubmittedException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ErrorResponse("ASSIGNMENT_ALREADY_SUBMITTED", e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidAssignmentSubmissionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidAssignmentSubmission(InvalidAssignmentSubmissionException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
+    }
+
+    @ExceptionHandler(AssignmentNotSubmittedException.class)
+    public ResponseEntity<ErrorResponse> handleAssignmentNotSubmitted(AssignmentNotSubmittedException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ErrorResponse("ASSIGNMENT_NOT_SUBMITTED", e.getMessage()));
     }
 }

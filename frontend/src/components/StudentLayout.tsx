@@ -4,9 +4,10 @@ import { useAuth } from '../auth/useAuth'
 import Button from './Button'
 import './StudentLayout.css'
 
-type StudentNavKey = 'practice' | 'history'
+type StudentNavKey = 'assignments' | 'practice' | 'history'
 
 const NAV_ITEMS: { key: StudentNavKey; label: string; to: string }[] = [
+  { key: 'assignments', label: '내 과제', to: '/student/assignments' },
   { key: 'practice', label: 'Practice', to: '/student/practice' },
   { key: 'history', label: 'My Study', to: '/student/history' },
 ]
