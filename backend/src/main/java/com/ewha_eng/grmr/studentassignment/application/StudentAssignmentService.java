@@ -16,9 +16,12 @@ import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmission;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentSubmissionRepository;
 import com.ewha_eng.grmr.studentassignment.domain.QuestionNotInAssignmentException;
 import com.ewha_eng.grmr.studentassignment.domain.StudentAssignmentProgressStatus;
+import com.ewha_eng.grmr.studyrecord.domain.StudyRecord;
+import com.ewha_eng.grmr.studyrecord.domain.StudyRecordStore;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -44,6 +47,7 @@ public class StudentAssignmentService {
     private final AssignmentSubmissionStarter submissionStarter;
     private final QuestionRepository questionRepository;
     private final MemberReader memberReader;
+    private final StudyRecordStore studyRecordStore;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -96,6 +100,49 @@ public class StudentAssignmentService {
         return new AssignmentAnswerDraftResult(questionId, submission.answerFor(questionId).orElseThrow(), now);
     }
 
+    @Transactional
+    public AssignmentSubmissionResult submit(Long assignmentId, Long studentId) {
+        Member student = requireMember(studentId);
+        Assignment assignment = requireAccessibleAssignment(assignmentId, studentId, student.getStudentGroup());
+        if (assignment.status(LocalDate.now(clock)) == AssignmentStatus.CLOSED) {
+            throw new AssignmentClosedException("마감된 과제는 제출할 수 없습니다.");
+        }
+
+        AssignmentSubmission locked = lockSubmissionForSubmit(assignmentId, studentId);
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        locked.submit(now);
+
+        int answeredQuestions = locked.answeredQuestionCount();
+        List<AssignmentSubmissionResultItem> results = gradeAndRecord(assignment, locked, student, now);
+        submissionRepository.save(locked);
+
+        int totalQuestions = assignment.getQuestionIds().size();
+        int correctCount = (int) results.stream().filter(AssignmentSubmissionResultItem::correct).count();
+        int score = totalQuestions == 0 ? 0 : Math.round(correctCount * 100f / totalQuestions);
+
+        return new AssignmentSubmissionResult(assignmentId, now, totalQuestions, answeredQuestions, correctCount,
+            score, results);
+    }
+
+    private List<AssignmentSubmissionResultItem> gradeAndRecord(Assignment assignment, AssignmentSubmission submission,
+        Member student, LocalDateTime submittedAt) {
+        Map<Long, Question> questionsById = questionRepository.findAllById(assignment.getQuestionIds()).stream()
+            .collect(Collectors.toMap(Question::getId, Function.identity()));
+
+        List<AssignmentSubmissionResultItem> results = new ArrayList<>();
+        for (Long questionId : assignment.getQuestionIds()) {
+            Question question = questionsById.get(questionId);
+            String answer = submission.answerFor(questionId).orElse(null);
+            StudyRecord record = studyRecordStore.save(
+                StudyRecord.createAssignmentAttempt(student, question, answer, assignment.getId(), submittedAt));
+            results.add(new AssignmentSubmissionResultItem(
+                questionId, record.getSubmittedAnswer(), record.isCorrect(), record.getCorrectAnswer(),
+                record.getExplanation()));
+        }
+        return results;
+    }
+
     private Assignment requireAccessibleAssignment(Long assignmentId, Long studentId, String studentGroup) {
         return assignmentRepository.findById(assignmentId)
             .filter(candidate -> isTargeted(candidate, studentId, studentGroup))
@@ -115,6 +162,25 @@ public class StudentAssignmentService {
             return submissionRepository.findWithDraftsByAssignmentIdAndStudentId(assignmentId, studentId)
                 .orElseThrow(() -> e);
         }
+    }
+
+    /**
+     * Acquires the row lock for the final-submit transaction as the transaction's <em>first</em>
+     * read of the submission (see {@link AssignmentSubmissionRepository#findByAssignmentIdAndStudentIdForSubmission}
+     * for why an unlocked pre-read would break this under concurrency). If the row doesn't exist yet
+     * (student never opened the questions screen), creates it first so a zero-answer submit is valid.
+     */
+    private AssignmentSubmission lockSubmissionForSubmit(Long assignmentId, Long studentId) {
+        return submissionRepository.findByAssignmentIdAndStudentIdForSubmission(assignmentId, studentId)
+            .orElseGet(() -> {
+                try {
+                    submissionStarter.startNew(assignmentId, studentId);
+                } catch (DataIntegrityViolationException ignored) {
+                    // Another concurrent request created it first; fall through to the locked read below.
+                }
+                return submissionRepository.findByAssignmentIdAndStudentIdForSubmission(assignmentId, studentId)
+                    .orElseThrow(() -> new AssignmentNotFoundException("과제를 찾을 수 없습니다."));
+            });
     }
 
     private boolean isTargeted(Assignment assignment, Long studentId, String studentGroup) {

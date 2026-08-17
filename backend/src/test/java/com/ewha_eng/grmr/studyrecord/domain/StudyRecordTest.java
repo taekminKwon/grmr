@@ -8,6 +8,7 @@ import com.ewha_eng.grmr.member.domain.MemberType;
 import com.ewha_eng.grmr.question.domain.Question;
 import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionType;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -90,6 +91,85 @@ class StudyRecordTest {
         assertThat(first).isNotSameAs(second);
         assertThat(first.isCorrect()).isTrue();
         assertThat(second.isCorrect()).isFalse();
+    }
+
+    @Test
+    void createAssignmentAttempt_snapshotsQuestionFields_andMarksCorrect_whenAnswerMatches() {
+        Member member = student();
+        Question question = grammarQuestion();
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 8, 15, 10, 0);
+
+        StudyRecord record = StudyRecord.createAssignmentAttempt(member, question, "since", 7L, submittedAt);
+
+        assertThat(record.getType()).isEqualTo(StudyRecordType.ASSIGNMENT);
+        assertThat(record.getAssignmentId()).isEqualTo(7L);
+        assertThat(record.getCategory()).isEqualTo("현재완료");
+        assertThat(record.getCorrectAnswer()).isEqualTo("since");
+        assertThat(record.getExplanation()).isEqualTo(question.getExplanation());
+        assertThat(record.getSubmittedAnswer()).isEqualTo("since");
+        assertThat(record.isCorrect()).isTrue();
+        assertThat(record.getSubmittedAt()).isEqualTo(submittedAt);
+    }
+
+    @Test
+    void createAssignmentAttempt_allowsNullSubmittedAnswer_andMarksIncorrect_forUnansweredQuestions() {
+        StudyRecord record = StudyRecord.createAssignmentAttempt(
+            student(), grammarQuestion(), null, 7L, LocalDateTime.now());
+
+        assertThat(record.getSubmittedAnswer()).isNull();
+        assertThat(record.isCorrect()).isFalse();
+        assertThat(record.getCorrectAnswer()).isEqualTo("since");
+    }
+
+    @Test
+    void createAssignmentAttempt_marksIncorrect_whenSubmittedAnswerDiffersFromCorrectAnswer() {
+        StudyRecord record = StudyRecord.createAssignmentAttempt(
+            student(), grammarQuestion(), "for", 7L, LocalDateTime.now());
+
+        assertThat(record.isCorrect()).isFalse();
+        assertThat(record.getSubmittedAnswer()).isEqualTo("for");
+    }
+
+    @Test
+    void createAssignmentAttempt_throws_whenMemberIsNull() {
+        assertThatThrownBy(
+            () -> StudyRecord.createAssignmentAttempt(null, grammarQuestion(), "since", 7L, LocalDateTime.now()))
+            .isInstanceOf(InvalidStudyRecordException.class);
+    }
+
+    @Test
+    void createAssignmentAttempt_throws_whenQuestionIsNull() {
+        assertThatThrownBy(
+            () -> StudyRecord.createAssignmentAttempt(student(), null, "since", 7L, LocalDateTime.now()))
+            .isInstanceOf(InvalidStudyRecordException.class);
+    }
+
+    @Test
+    void createAssignmentAttempt_throws_whenAssignmentIdIsNull() {
+        assertThatThrownBy(
+            () -> StudyRecord.createAssignmentAttempt(student(), grammarQuestion(), "since", null,
+                LocalDateTime.now()))
+            .isInstanceOf(InvalidStudyRecordException.class);
+    }
+
+    @Test
+    void createAssignmentAttempt_throws_whenSubmittedAtIsNull() {
+        assertThatThrownBy(
+            () -> StudyRecord.createAssignmentAttempt(student(), grammarQuestion(), "since", 7L, null))
+            .isInstanceOf(InvalidStudyRecordException.class);
+    }
+
+    @Test
+    void createAssignmentAttempt_keepsSnapshotIndependent_whenOriginalQuestionIsLaterUpdated() {
+        Question question = grammarQuestion();
+        StudyRecord record = StudyRecord.createAssignmentAttempt(
+            student(), question, null, 7L, LocalDateTime.now());
+
+        question.update(null, null, null, "updated text", null, "for", "updated explanation");
+
+        assertThat(record.getText()).isEqualTo("He has lived here _____ 2010.");
+        assertThat(record.getCorrectAnswer()).isEqualTo("since");
+        assertThat(record.getExplanation()).isEqualTo("특정 시작 시점과 현재완료가 함께 쓰일 때 since를 사용합니다.");
     }
 
     private Member student() {
