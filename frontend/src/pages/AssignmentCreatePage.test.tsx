@@ -174,6 +174,38 @@ describe('AssignmentCreatePage', () => {
     )
   })
 
+  // Regression test: the question-search controls must never be able to
+  // trigger the outer create-assignment submission. They previously lived in
+  // a nested <form>, and even though preventDefault() stopped the browser's
+  // own navigation, the native "submit" event still bubbled up through the
+  // DOM to the outer <form>'s onSubmit — silently POSTing /api/assignments
+  // whenever the top-level fields already happened to be valid.
+  it('never submits the assignment when searching questions, even with valid top-level fields', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(jsonResponse(200, questionPageResponse([rawQuestionA])))
+    vi.stubGlobal('fetch', fetchSpy)
+    seedAdminSession()
+
+    renderAssignmentCreatePage()
+    await waitFor(() => expect(screen.getByText('Question A text')).toBeDefined())
+
+    fillCommonFields()
+    const searchTable = screen.getByRole('table', { name: '문제 검색 결과' })
+    fireEvent.click(within(searchTable).getByRole('button', { name: '추가' }))
+
+    fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '현재완료' } })
+    fireEvent.click(screen.getByRole('button', { name: '검색' }))
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2))
+    expect(fetchSpy.mock.calls.every(([url]) => String(url).startsWith('/api/questions'))).toBe(true)
+    expect(screen.queryByText('Assignment detail landing')).toBeNull()
+
+    fireEvent.change(screen.getByLabelText('키워드'), { target: { value: 'lived' } })
+    fireEvent.keyDown(screen.getByLabelText('키워드'), { key: 'Enter' })
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(3))
+    expect(fetchSpy.mock.calls.every(([url]) => String(url).startsWith('/api/questions'))).toBe(true)
+    expect(screen.queryByText('Assignment detail landing')).toBeNull()
+  })
+
   it('supports adding, reordering, and removing selected questions', async () => {
     vi.stubGlobal(
       'fetch',
