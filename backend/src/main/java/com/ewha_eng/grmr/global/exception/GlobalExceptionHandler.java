@@ -15,6 +15,7 @@ import com.ewha_eng.grmr.question.domain.NoQuestionAvailableException;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import com.ewha_eng.grmr.question.domain.QuestionNotInUseException;
 import com.ewha_eng.grmr.question.domain.QuestionTypeNotSupportedException;
+import com.ewha_eng.grmr.student.domain.InvalidStudentSearchException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentAlreadySubmittedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentClosedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentNotSubmittedException;
@@ -180,5 +181,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAssignmentNotSubmitted(AssignmentNotSubmittedException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(new ErrorResponse("ASSIGNMENT_NOT_SUBMITTED", e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidStudentSearchException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStudentSearch(InvalidStudentSearchException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
     }
 }
