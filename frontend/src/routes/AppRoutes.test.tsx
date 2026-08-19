@@ -419,6 +419,55 @@ describe('AppRoutes', () => {
     expect(screen.getByRole('link', { name: 'Assignments' }).getAttribute('href')).toBe('/admin/assignments')
   })
 
+  it('shows the Students link in the admin navigation', () => {
+    seedAdminSession()
+
+    renderAt('/admin')
+
+    expect(screen.getByRole('link', { name: 'Students' }).getAttribute('href')).toBe('/admin/students')
+  })
+
+  it('redirects unauthenticated access to /admin/students back to /login', () => {
+    renderAt('/admin/students')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the Student list for an authenticated admin at /admin/students', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 }),
+      ),
+    )
+    seedAdminSession()
+
+    renderAt('/admin/students')
+
+    expect(screen.getByRole('heading', { name: '학생 관리' })).toBeDefined()
+    await waitFor(() => expect(screen.getByText('조건에 맞는 학생이 없습니다.')).toBeDefined())
+  })
+
+  it('renders a forbidden state for an authenticated STUDENT at /admin/students', () => {
+    seedStudentSession()
+
+    renderAt('/admin/students')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '학생 관리' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /admin/students when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/admin/students')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
+
   it('redirects unauthenticated access to /student/assignments back to /login', () => {
     renderAt('/student/assignments')
 

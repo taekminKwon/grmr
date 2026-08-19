@@ -13,6 +13,7 @@ import StudentAssignmentResultPage from '../pages/StudentAssignmentResultPage'
 import StudentAssignmentSolvePage from '../pages/StudentAssignmentSolvePage'
 import StudentHistoryDetailPage from '../pages/StudentHistoryDetailPage'
 import StudentHistoryListPage from '../pages/StudentHistoryListPage'
+import StudentListPage from '../pages/StudentListPage'
 import StudentPage from '../pages/StudentPage'
 import StudentPracticePage from '../pages/StudentPracticePage'
 import ProtectedRoute from './ProtectedRoute'
@@ -82,6 +83,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="ADMIN">
             <AssignmentEditPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/students"
+        element={
+          <ProtectedRoute requiredRole="ADMIN">
+            <StudentListPage />
           </ProtectedRoute>
         }
       />
