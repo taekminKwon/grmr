@@ -468,6 +468,60 @@ describe('AppRoutes', () => {
     expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
   })
 
+  it('redirects unauthenticated access to /admin/students/:id back to /login', () => {
+    renderAt('/admin/students/501')
+
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeDefined()
+  })
+
+  it('renders the Student detail for an authenticated admin at /admin/students/:id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        if (url.startsWith('/api/study-records')) {
+          return Promise.resolve(jsonResponse(200, { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 }))
+        }
+        return Promise.resolve(
+          jsonResponse(200, {
+            id: 501,
+            name: '김민수',
+            studentGroup: '중1 A반',
+            lastStudiedAt: '2026-08-01',
+            totalQuestionCount: 128,
+            accuracy: 74,
+            pendingAssignmentCount: 1,
+          }),
+        )
+      }),
+    )
+    seedAdminSession()
+
+    renderAt('/admin/students/501')
+
+    expect(screen.getByRole('heading', { name: '학생 상세' })).toBeDefined()
+    await waitFor(() => expect(screen.getByText('김민수')).toBeDefined())
+  })
+
+  it('renders a forbidden state for an authenticated STUDENT at /admin/students/:id', () => {
+    seedStudentSession()
+
+    renderAt('/admin/students/501')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '학생 상세' })).toBeNull()
+  })
+
+  it('renders a forbidden state at /admin/students/:id when the session role is missing or invalid', () => {
+    sessionStorage.setItem(
+      'grmr.auth.session',
+      JSON.stringify({ accessToken: 'access-token', user: { name: '알수없음', role: 'BOGUS' } }),
+    )
+
+    renderAt('/admin/students/501')
+
+    expect(screen.getByRole('heading', { name: '접근 권한이 없습니다' })).toBeDefined()
+  })
+
   it('redirects unauthenticated access to /student/assignments back to /login', () => {
     renderAt('/student/assignments')
 

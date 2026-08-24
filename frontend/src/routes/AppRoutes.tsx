@@ -11,6 +11,7 @@ import QuestionListPage from '../pages/QuestionListPage'
 import StudentAssignmentListPage from '../pages/StudentAssignmentListPage'
 import StudentAssignmentResultPage from '../pages/StudentAssignmentResultPage'
 import StudentAssignmentSolvePage from '../pages/StudentAssignmentSolvePage'
+import StudentDetailPage from '../pages/StudentDetailPage'
 import StudentHistoryDetailPage from '../pages/StudentHistoryDetailPage'
 import StudentHistoryListPage from '../pages/StudentHistoryListPage'
 import StudentListPage from '../pages/StudentListPage'
@@ -91,6 +92,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="ADMIN">
             <StudentListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/students/:id"
+        element={
+          <ProtectedRoute requiredRole="ADMIN">
+            <StudentDetailPage />
           </ProtectedRoute>
         }
       />

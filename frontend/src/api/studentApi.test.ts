@@ -116,3 +116,113 @@ describe('studentApi.listStudents', () => {
     await expect(studentApi.listStudents(ACCESS_TOKEN)).rejects.toBeInstanceOf(StudentApiError)
   })
 })
+
+describe('studentApi.getStudent', () => {
+  it('GETs /api/students/{id} with a Bearer authorization header and returns the student as-is', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(jsonResponse(200, rawStudent))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const result = await studentApi.getStudent(ACCESS_TOKEN, 501)
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchSpy.mock.calls[0]
+    expect(url).toBe('/api/students/501')
+    expect(init.headers.Authorization).toBe('Bearer access-token-abc')
+    expect(result).toEqual(rawStudent)
+  })
+
+  it('throws a StudentApiError with STUDENT_NOT_FOUND on a 404 response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse(404, { code: 'STUDENT_NOT_FOUND', message: '학생을 찾을 수 없습니다.' })),
+    )
+
+    await expect(studentApi.getStudent(ACCESS_TOKEN, 999)).rejects.toMatchObject({
+      message: '학생을 찾을 수 없습니다.',
+      code: 'STUDENT_NOT_FOUND',
+      status: 404,
+    })
+  })
+})
+
+describe('studentApi.listStudyRecords', () => {
+  const rawRollup = {
+    studentId: 501,
+    studentName: '김민수',
+    date: '2026-08-01',
+    type: 'ASSIGNMENT',
+    questionCount: 20,
+    correctCount: 16,
+    accuracy: 80,
+    durationMinutes: 0,
+  }
+
+  it('GETs the same-origin /api/study-records path with a Bearer authorization header', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      jsonResponse(200, { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 }),
+    )
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await studentApi.listStudyRecords(ACCESS_TOKEN)
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchSpy.mock.calls[0]
+    expect(url).toBe('/api/study-records')
+    expect(init.headers.Authorization).toBe('Bearer access-token-abc')
+  })
+
+  it('serializes studentId/period/type/page/size filters into the query string', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      jsonResponse(200, { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 }),
+    )
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await studentApi.listStudyRecords(ACCESS_TOKEN, { studentId: 501, period: '7d', type: 'PRACTICE', page: 0, size: 20 })
+
+    const [url] = fetchSpy.mock.calls[0]
+    const params = new URLSearchParams(url.split('?')[1])
+    expect(params.get('studentId')).toBe('501')
+    expect(params.get('period')).toBe('7d')
+    expect(params.get('type')).toBe('PRACTICE')
+    expect(params.get('page')).toBe('0')
+    expect(params.get('size')).toBe('20')
+  })
+
+  it('returns the page response with rollup fields passed through as-is', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, { content: [rawRollup], page: 0, size: 20, totalElements: 1, totalPages: 1 }),
+      ),
+    )
+
+    const result = await studentApi.listStudyRecords(ACCESS_TOKEN, { studentId: 501 })
+
+    expect(result).toEqual({
+      content: [rawRollup],
+      page: 0,
+      size: 20,
+      totalElements: 1,
+      totalPages: 1,
+    })
+  })
+
+  it('throws a StudentApiError with STUDENT_NOT_FOUND on a 404 response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse(404, { code: 'STUDENT_NOT_FOUND', message: '학생을 찾을 수 없습니다.' })),
+    )
+
+    await expect(studentApi.listStudyRecords(ACCESS_TOKEN, { studentId: 999 })).rejects.toMatchObject({
+      message: '학생을 찾을 수 없습니다.',
+      code: 'STUDENT_NOT_FOUND',
+      status: 404,
+    })
+  })
+
+  it('throws a StudentApiError when fetch itself rejects (network error)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    await expect(studentApi.listStudyRecords(ACCESS_TOKEN)).rejects.toBeInstanceOf(StudentApiError)
+  })
+})
