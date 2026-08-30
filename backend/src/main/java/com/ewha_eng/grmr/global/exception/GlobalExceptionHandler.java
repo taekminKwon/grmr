@@ -22,6 +22,7 @@ import com.ewha_eng.grmr.studentassignment.domain.AssignmentNotSubmittedExceptio
 import com.ewha_eng.grmr.studentassignment.domain.InvalidAssignmentSubmissionException;
 import com.ewha_eng.grmr.studentassignment.domain.QuestionNotInAssignmentException;
 import com.ewha_eng.grmr.studyrecord.domain.InvalidStudyRecordException;
+import com.ewha_eng.grmr.studyrecord.domain.InvalidStudyRecordSearchException;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -119,6 +120,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InvalidStudyRecordException.class)
     public ResponseEntity<ErrorResponse> handleInvalidStudyRecord(InvalidStudyRecordException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidStudyRecordSearchException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStudyRecordSearch(InvalidStudyRecordSearchException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
     }
