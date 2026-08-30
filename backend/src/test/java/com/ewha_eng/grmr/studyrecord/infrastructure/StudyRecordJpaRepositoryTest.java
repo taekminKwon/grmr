@@ -19,7 +19,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
@@ -44,7 +43,7 @@ class StudyRecordJpaRepositoryTest {
         Question question = saveQuestion();
 
         StudyRecord saved = studyRecordRepository.saveAndFlush(
-            StudyRecord.createPracticeAttempt(member, question, "since"));
+            StudyRecord.createPracticeAttempt(member, question, "since", LocalDateTime.now()));
 
         assertThat(saved.getId()).isNotNull();
     }
@@ -54,7 +53,7 @@ class StudyRecordJpaRepositoryTest {
         Member owner = saveStudent("owner01");
         Question question = saveQuestion();
         StudyRecord saved = studyRecordRepository.saveAndFlush(
-            StudyRecord.createPracticeAttempt(owner, question, "since"));
+            StudyRecord.createPracticeAttempt(owner, question, "since", LocalDateTime.now()));
 
         Optional<StudyRecord> found = studyRecordReader.findByIdAndMemberId(saved.getId(), owner.getId());
 
@@ -68,7 +67,7 @@ class StudyRecordJpaRepositoryTest {
         Member other = saveStudent("other02");
         Question question = saveQuestion();
         StudyRecord saved = studyRecordRepository.saveAndFlush(
-            StudyRecord.createPracticeAttempt(owner, question, "since"));
+            StudyRecord.createPracticeAttempt(owner, question, "since", LocalDateTime.now()));
 
         Optional<StudyRecord> found = studyRecordReader.findByIdAndMemberId(saved.getId(), other.getId());
 
@@ -107,9 +106,9 @@ class StudyRecordJpaRepositoryTest {
             .explanation("해설")
             .build());
         StudyRecord matching = studyRecordRepository.saveAndFlush(
-            StudyRecord.createPracticeAttempt(owner, sinceQuestion, "since"));
+            StudyRecord.createPracticeAttempt(owner, sinceQuestion, "since", LocalDateTime.now()));
         studyRecordRepository.saveAndFlush(
-            StudyRecord.createPracticeAttempt(owner, anotherCategoryQuestion, "were"));
+            StudyRecord.createPracticeAttempt(owner, anotherCategoryQuestion, "were", LocalDateTime.now()));
 
         Page<StudyRecord> page = studyRecordReader.search(owner.getId(), "현재완료", PageRequest.of(0, 10));
 
@@ -155,9 +154,9 @@ class StudyRecordJpaRepositoryTest {
         Question question = saveQuestion();
 
         StudyRecord first = studyRecordRepository.saveAndFlush(
-            StudyRecord.createPracticeAttempt(owner, question, "since"));
+            StudyRecord.createPracticeAttempt(owner, question, "since", LocalDateTime.now()));
         StudyRecord second = studyRecordRepository.saveAndFlush(
-            StudyRecord.createPracticeAttempt(owner, question, "for"));
+            StudyRecord.createPracticeAttempt(owner, question, "for", LocalDateTime.now()));
 
         assertThat(first.getId()).isNotEqualTo(second.getId());
         assertThat(first.isCorrect()).isTrue();
@@ -171,7 +170,7 @@ class StudyRecordJpaRepositoryTest {
         Member other = saveStudent("other09");
         Question question = saveQuestion();
         studyRecordRepository.saveAndFlush(
-            StudyRecord.createPracticeAttempt(owner, question, "since"));
+            StudyRecord.createPracticeAttempt(owner, question, "since", LocalDateTime.now()));
         StudyRecord ownAttempt = studyRecordRepository.saveAndFlush(
             StudyRecord.createAssignmentAttempt(owner, question, "since", 1L, LocalDateTime.now()));
         studyRecordRepository.saveAndFlush(
@@ -198,7 +197,7 @@ class StudyRecordJpaRepositoryTest {
         Member owner = saveStudent("owner05");
         Question question = saveQuestion();
         StudyRecord saved = studyRecordRepository.saveAndFlush(
-            StudyRecord.createPracticeAttempt(owner, question, "since"));
+            StudyRecord.createPracticeAttempt(owner, question, "since", LocalDateTime.now()));
 
         question.update(null, null, null, "updated text", null, null, "updated explanation");
         questionRepository.saveAndFlush(question);
@@ -210,8 +209,7 @@ class StudyRecordJpaRepositoryTest {
     }
 
     private StudyRecord save(Member member, Question question, String answer, LocalDateTime submittedAt) {
-        StudyRecord record = StudyRecord.createPracticeAttempt(member, question, answer);
-        ReflectionTestUtils.setField(record, "submittedAt", submittedAt);
+        StudyRecord record = StudyRecord.createPracticeAttempt(member, question, answer, submittedAt);
         return studyRecordRepository.saveAndFlush(record);
     }
 

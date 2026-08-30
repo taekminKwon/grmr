@@ -10,6 +10,8 @@ import com.ewha_eng.grmr.studyrecord.domain.StudyRecord;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordNotFoundException;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordReader;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordStore;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +26,7 @@ public class StudyRecordService {
     private final QuestionRepository questionRepository;
     private final StudyRecordReader studyRecordReader;
     private final StudyRecordStore studyRecordStore;
+    private final Clock clock;
 
     @Transactional
     public StudyRecord submitPracticeAnswer(Long memberId, Long questionId, String answer) {
@@ -33,7 +36,8 @@ public class StudyRecordService {
             .orElseThrow(() -> new QuestionNotFoundException("문제를 찾을 수 없습니다."));
         question.validateAvailableForPractice();
 
-        return studyRecordStore.save(StudyRecord.createPracticeAttempt(member, question, answer));
+        LocalDateTime submittedAt = LocalDateTime.now(clock);
+        return studyRecordStore.save(StudyRecord.createPracticeAttempt(member, question, answer, submittedAt));
     }
 
     @Transactional(readOnly = true)

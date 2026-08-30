@@ -232,9 +232,9 @@ class StudyRecordJpaRepositoryRollupTest {
     }
 
     private void savePractice(Member member, Question question, boolean correct, LocalDateTime submittedAt) {
-        StudyRecord record = StudyRecord.createPracticeAttempt(member, question, correct ? "since" : "for");
+        StudyRecord record = StudyRecord.createPracticeAttempt(member, question, correct ? "since" : "for",
+            submittedAt);
         ReflectionTestUtils.setField(record, "correct", correct);
-        ReflectionTestUtils.setField(record, "submittedAt", submittedAt);
         studyRecordRepository.saveAndFlush(record);
     }
 

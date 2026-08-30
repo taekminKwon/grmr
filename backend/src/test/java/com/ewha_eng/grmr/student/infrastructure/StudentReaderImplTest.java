@@ -240,9 +240,8 @@ class StudentReaderImplTest {
 
     private void saveStudyRecord(Member student, Question question, String submittedAnswer, boolean correct,
         LocalDateTime submittedAt) {
-        StudyRecord record = StudyRecord.createPracticeAttempt(student, question, submittedAnswer);
+        StudyRecord record = StudyRecord.createPracticeAttempt(student, question, submittedAnswer, submittedAt);
         ReflectionTestUtils.setField(record, "correct", correct);
-        ReflectionTestUtils.setField(record, "submittedAt", submittedAt);
         studyRecordRepository.saveAndFlush(record);
     }
 
