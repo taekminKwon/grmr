@@ -27,6 +27,7 @@ import com.ewha_eng.grmr.question.domain.QuestionTypeNotSupportedException;
 import com.ewha_eng.grmr.studyrecord.application.StudyRecordService;
 import com.ewha_eng.grmr.studyrecord.domain.InvalidStudyRecordException;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecord;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,7 +84,8 @@ class StudyRecordControllerTest {
     }
 
     private StudyRecord practiceAttempt(Member member, Question question, String answer, Long id) {
-        StudyRecord record = StudyRecord.createPracticeAttempt(member, question, answer);
+        StudyRecord record = StudyRecord.createPracticeAttempt(member, question, answer,
+            LocalDateTime.of(2026, 8, 15, 10, 0));
         ReflectionTestUtils.setField(record, "id", id);
         return record;
     }

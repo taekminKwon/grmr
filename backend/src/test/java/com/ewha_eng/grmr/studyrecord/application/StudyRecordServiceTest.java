@@ -22,6 +22,12 @@ import com.ewha_eng.grmr.studyrecord.domain.StudyRecord;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordNotFoundException;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordReader;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordStore;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,12 +61,15 @@ class StudyRecordServiceTest {
     @Captor
     private ArgumentCaptor<StudyRecord> studyRecordCaptor;
 
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+        LocalDateTime.of(2026, 8, 15, 10, 0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
+
     private StudyRecordService studyRecordService;
 
     @BeforeEach
     void setUp() {
         studyRecordService = new StudyRecordService(memberReader, questionRepository, studyRecordReader,
-            studyRecordStore);
+            studyRecordStore, FIXED_CLOCK);
     }
 
     private Member student() {
@@ -155,6 +164,24 @@ class StudyRecordServiceTest {
     }
 
     @Test
+    void submitPracticeAnswer_derivesSubmittedAtFromInjectedKstClock_acrossUtcKstDateBoundary() {
+        Instant utcInstant = LocalDateTime.of(2026, 8, 15, 16, 0).toInstant(ZoneOffset.UTC);
+        Clock kstClock = Clock.fixed(utcInstant, ZoneId.of("Asia/Seoul"));
+        StudyRecordService service = new StudyRecordService(memberReader, questionRepository, studyRecordReader,
+            studyRecordStore, kstClock);
+        Member member = student();
+        Question question = activeMultipleChoiceQuestion();
+        when(memberReader.findById(2L)).thenReturn(Optional.of(member));
+        when(questionRepository.findById(1021L)).thenReturn(Optional.of(question));
+        when(studyRecordStore.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudyRecord result = service.submitPracticeAnswer(2L, 1021L, "were");
+
+        assertThat(result.getSubmittedAt()).isEqualTo(LocalDateTime.of(2026, 8, 16, 1, 0));
+        assertThat(result.getSubmittedAt().toLocalDate()).isEqualTo(LocalDate.of(2026, 8, 16));
+    }
+
+    @Test
     void submitPracticeAnswer_throwsMemberNotFoundException_whenMemberIdDoesNotResolve() {
         when(memberReader.findById(999L)).thenReturn(Optional.empty());
 
@@ -217,7 +244,8 @@ class StudyRecordServiceTest {
     }
 
     private StudyRecord practiceAttempt(Member member, Question question, String answer, Long id) {
-        StudyRecord record = StudyRecord.createPracticeAttempt(member, question, answer);
+        StudyRecord record = StudyRecord.createPracticeAttempt(member, question, answer,
+            LocalDateTime.of(2026, 8, 15, 10, 0));
         ReflectionTestUtils.setField(record, "id", id);
         return record;
     }

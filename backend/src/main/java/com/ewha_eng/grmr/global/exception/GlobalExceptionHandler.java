@@ -15,12 +15,14 @@ import com.ewha_eng.grmr.question.domain.NoQuestionAvailableException;
 import com.ewha_eng.grmr.question.domain.QuestionNotFoundException;
 import com.ewha_eng.grmr.question.domain.QuestionNotInUseException;
 import com.ewha_eng.grmr.question.domain.QuestionTypeNotSupportedException;
+import com.ewha_eng.grmr.student.domain.InvalidStudentSearchException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentAlreadySubmittedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentClosedException;
 import com.ewha_eng.grmr.studentassignment.domain.AssignmentNotSubmittedException;
 import com.ewha_eng.grmr.studentassignment.domain.InvalidAssignmentSubmissionException;
 import com.ewha_eng.grmr.studentassignment.domain.QuestionNotInAssignmentException;
 import com.ewha_eng.grmr.studyrecord.domain.InvalidStudyRecordException;
+import com.ewha_eng.grmr.studyrecord.domain.InvalidStudyRecordSearchException;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecordNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -122,6 +124,12 @@ public class GlobalExceptionHandler {
             .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
     }
 
+    @ExceptionHandler(InvalidStudyRecordSearchException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStudyRecordSearch(InvalidStudyRecordSearchException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
+    }
+
     @ExceptionHandler(AssignmentNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleAssignmentNotFound(AssignmentNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -180,5 +188,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAssignmentNotSubmitted(AssignmentNotSubmittedException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(new ErrorResponse("ASSIGNMENT_NOT_SUBMITTED", e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidStudentSearchException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStudentSearch(InvalidStudentSearchException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
     }
 }

@@ -10,6 +10,7 @@ import com.ewha_eng.grmr.question.domain.QuestionLevel;
 import com.ewha_eng.grmr.question.domain.QuestionRepository;
 import com.ewha_eng.grmr.question.domain.QuestionType;
 import com.ewha_eng.grmr.studyrecord.domain.StudyRecord;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -70,7 +71,7 @@ class StudyRecordPostgresIntegrationTest {
             .build());
 
         StudyRecord saved = studyRecordRepository.saveAndFlush(
-            StudyRecord.createPracticeAttempt(member, question, "since"));
+            StudyRecord.createPracticeAttempt(member, question, "since", LocalDateTime.of(2026, 8, 15, 10, 0)));
 
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.getChoices()).containsExactly("for", "since", "during", "from");

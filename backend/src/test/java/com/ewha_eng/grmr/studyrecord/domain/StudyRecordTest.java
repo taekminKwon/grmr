@@ -14,12 +14,14 @@ import org.junit.jupiter.api.Test;
 
 class StudyRecordTest {
 
+    private static final LocalDateTime SUBMITTED_AT = LocalDateTime.of(2026, 8, 15, 10, 0);
+
     @Test
     void createPracticeAttempt_snapshotsQuestionFields_andMarksCorrect_whenAnswerMatches() {
         Member member = student();
         Question question = grammarQuestion();
 
-        StudyRecord record = StudyRecord.createPracticeAttempt(member, question, "since");
+        StudyRecord record = StudyRecord.createPracticeAttempt(member, question, "since", SUBMITTED_AT);
 
         assertThat(record.getType()).isEqualTo(StudyRecordType.PRACTICE);
         assertThat(record.getMember()).isEqualTo(member);
@@ -38,7 +40,7 @@ class StudyRecordTest {
 
     @Test
     void createPracticeAttempt_marksIncorrect_whenSubmittedAnswerDiffersFromCorrectAnswer() {
-        StudyRecord record = StudyRecord.createPracticeAttempt(student(), grammarQuestion(), "for");
+        StudyRecord record = StudyRecord.createPracticeAttempt(student(), grammarQuestion(), "for", SUBMITTED_AT);
 
         assertThat(record.isCorrect()).isFalse();
         assertThat(record.getSubmittedAnswer()).isEqualTo("for");
@@ -47,32 +49,38 @@ class StudyRecordTest {
 
     @Test
     void createPracticeAttempt_throws_whenMemberIsNull() {
-        assertThatThrownBy(() -> StudyRecord.createPracticeAttempt(null, grammarQuestion(), "since"))
+        assertThatThrownBy(() -> StudyRecord.createPracticeAttempt(null, grammarQuestion(), "since", SUBMITTED_AT))
             .isInstanceOf(InvalidStudyRecordException.class);
     }
 
     @Test
     void createPracticeAttempt_throws_whenQuestionIsNull() {
-        assertThatThrownBy(() -> StudyRecord.createPracticeAttempt(student(), null, "since"))
+        assertThatThrownBy(() -> StudyRecord.createPracticeAttempt(student(), null, "since", SUBMITTED_AT))
             .isInstanceOf(InvalidStudyRecordException.class);
     }
 
     @Test
     void createPracticeAttempt_throws_whenSubmittedAnswerIsBlank() {
-        assertThatThrownBy(() -> StudyRecord.createPracticeAttempt(student(), grammarQuestion(), "   "))
+        assertThatThrownBy(() -> StudyRecord.createPracticeAttempt(student(), grammarQuestion(), "   ", SUBMITTED_AT))
             .isInstanceOf(InvalidStudyRecordException.class);
     }
 
     @Test
     void createPracticeAttempt_throws_whenSubmittedAnswerIsNull() {
-        assertThatThrownBy(() -> StudyRecord.createPracticeAttempt(student(), grammarQuestion(), null))
+        assertThatThrownBy(() -> StudyRecord.createPracticeAttempt(student(), grammarQuestion(), null, SUBMITTED_AT))
+            .isInstanceOf(InvalidStudyRecordException.class);
+    }
+
+    @Test
+    void createPracticeAttempt_throws_whenSubmittedAtIsNull() {
+        assertThatThrownBy(() -> StudyRecord.createPracticeAttempt(student(), grammarQuestion(), "since", null))
             .isInstanceOf(InvalidStudyRecordException.class);
     }
 
     @Test
     void createPracticeAttempt_keepsSnapshotIndependent_whenOriginalQuestionIsLaterUpdated() {
         Question question = grammarQuestion();
-        StudyRecord record = StudyRecord.createPracticeAttempt(student(), question, "since");
+        StudyRecord record = StudyRecord.createPracticeAttempt(student(), question, "since", SUBMITTED_AT);
 
         question.update(null, null, null, "updated text", null, null, "updated explanation");
 
@@ -85,8 +93,8 @@ class StudyRecordTest {
         Question question = grammarQuestion();
         Member member = student();
 
-        StudyRecord first = StudyRecord.createPracticeAttempt(member, question, "since");
-        StudyRecord second = StudyRecord.createPracticeAttempt(member, question, "for");
+        StudyRecord first = StudyRecord.createPracticeAttempt(member, question, "since", SUBMITTED_AT);
+        StudyRecord second = StudyRecord.createPracticeAttempt(member, question, "for", SUBMITTED_AT);
 
         assertThat(first).isNotSameAs(second);
         assertThat(first.isCorrect()).isTrue();

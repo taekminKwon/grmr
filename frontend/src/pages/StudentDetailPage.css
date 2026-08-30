@@ -1,0 +1,229 @@
+.student-detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 56rem;
+}
+
+.student-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.student-detail-header h1 {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.student-detail-back-link {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.student-detail-back-link:hover,
+.student-detail-back-link:focus-visible {
+  text-decoration: underline;
+}
+
+.student-detail-status {
+  color: var(--color-text-muted);
+}
+
+.student-detail-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+}
+
+.student-detail-error p {
+  margin: 0;
+}
+
+.student-detail-card {
+  padding: var(--space-5);
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.student-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.student-detail-meta dt {
+  margin: 0 0 var(--space-1);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.student-detail-meta dd {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.student-detail-cell-muted {
+  color: var(--color-text-muted);
+}
+
+.student-detail-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.student-detail-history h2 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+.student-detail-filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.student-detail-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 9rem;
+}
+
+.student-detail-filter-field label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.student-detail-filter-field select {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  background-color: var(--color-white);
+}
+
+.student-detail-filter-field select:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.student-detail-filter-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.student-detail-history-content {
+  min-height: 8rem;
+}
+
+.student-detail-empty {
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--color-text-muted);
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.student-detail-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.student-detail-history-table th,
+.student-detail-history-table td {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.875rem;
+}
+
+.student-detail-history-table th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  background-color: var(--color-primary-soft);
+}
+
+.student-detail-history-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.student-detail-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.student-detail-pagination-status {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 720px) {
+  .student-detail-page {
+    max-width: none;
+  }
+
+  .student-detail-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .student-detail-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .student-detail-filter-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .student-detail-filter-field {
+    min-width: 0;
+  }
+
+  .student-detail-history-table {
+    display: block;
+    overflow-x: auto;
+  }
+}

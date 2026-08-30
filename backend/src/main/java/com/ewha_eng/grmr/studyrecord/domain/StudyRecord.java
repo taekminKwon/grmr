@@ -98,10 +98,14 @@ public class StudyRecord {
         this.submittedAt = submittedAt;
     }
 
-    public static StudyRecord createPracticeAttempt(Member member, Question question, String submittedAnswer) {
+    public static StudyRecord createPracticeAttempt(Member member, Question question, String submittedAnswer,
+        LocalDateTime submittedAt) {
         validate(member, question, StudyRecordType.PRACTICE, submittedAnswer, null);
+        if (submittedAt == null) {
+            throw new InvalidStudyRecordException("제출 시각은 필수입니다.");
+        }
         return new StudyRecord(member, question, StudyRecordType.PRACTICE, submittedAnswer, null,
-            LocalDateTime.now());
+            submittedAt);
     }
 
     /**
